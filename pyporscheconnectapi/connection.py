@@ -150,6 +150,7 @@ class Connection:
             self.expiration = now + expires_in
         self.head = {
             "Authorization": f"Bearer {access_token}",
+            "apikey": self.porscheAPIClientID,
             "User-Agent": self.user_agent,
         }
     async def close(self):
