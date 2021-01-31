@@ -32,36 +32,27 @@ class Connection:
         email: Text = None,
         password: Text = None,
         websession: aiohttp.ClientSession = None,
-        access_token: Text = None,
-        refresh_token: Text = None,
-        id_token: Text = None,
-        expiration: int = 0,
     ) -> None:
         """Initialize connection object."""
-        self.user_agent: Text = "Android REL 4.4.4; en_US"
-        self.client_id: Text = "TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp"
         self.porscheCookiedomain: Text = "https://login.porsche.com"
         self.porscheLogin: Text = "https://login.porsche.com/auth/de/de_DE"
         self.porscheLoginAuth: Text = "https://login.porsche.com/auth/api/v1/de/de_DE/public/login"
-        self.porscheAPIClientID: Text = "TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp"
-        self.porscheAPIRedirectURI: Text = "https://my-static02.porsche.com/static/cms/auth.html"
         self.porscheAPIAuth: Text = "https://login.porsche.com/as/authorization.oauth2"
         self.porscheAPIToken: Text = "https://login.porsche.com/as/token.oauth2"
         self.porscheAPI: Text = "https://connect-portal.porsche.com/core/api/v3/de/de_DE"
+        self.porscheApplications = {
+                'portal': { 'client_id': 'TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp', 'bearer_token': None, 'refresh_token': None,
+                    'access_token': None, 'expiration': 0, 'redirect_uri': "https://my-static02.porsche.com/static/cms/auth.html" },
+                'carcontrol': { 'client_id': 'gZLSI7ThXFB4d2ld9t8Cx2DBRvGr1zN2', 'bearer_token': None, 'refresh_token':
+                    None, 'access_type': None, 'expiration': 0, 'redirect_uri':  "https://connect-portal.porsche.com/myservices/auth/auth.html" }
+                }
 
-        self.expiration: int = expiration
-        self.access_token = access_token
         self.email = email
         self.password = password
-        self.head = None
-        self.refresh_token = refresh_token
+        self.expiration = 0
         self.websession = websession
-        self.token_refreshed = False
         if self.websession == None:
             self.websession = aiohttp.ClientSession()
-        if self.access_token:
-            self.__sethead(access_token=self.access_token, expiration=self.expiration)
-            _LOGGER.debug("Connecting with existing access token")
 
 
     async def authFlow(self):
@@ -88,71 +79,125 @@ class Connection:
             async with self.websession.post(self.porscheLoginAuth,  data=login_data, max_redirects=30) as resp:
                 _LOGGER.debug("Login AUTH Headers %s", resp.headers)
 
-            code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
-            code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
+            await self._requestToken('portal')
+            await self._requestToken('carcontrol')
 
-            code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
-            code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
-            code_challenge = code_challenge.replace('=', '')
+            self.expiration = self.porscheApplications['portal']['expiration']
 
-            auth_data = { 'scope': 'openid', 'response_type': 'code', 'access_type': 'offline', 'prompt': 'none',
-                    'client_id': self.porscheAPIClientID, 'redirect_uri': self.porscheAPIRedirectURI,
-                    'code_challenge': code_challenge, 'code_challenge_method': 'S256' }
 
-            async with self.websession.get(self.porscheAPIAuth, params=auth_data) as resp:
-                last_location = resp.history[len(resp.history) - 1].headers['Location']
-                query = urllib.parse.urlparse(last_location).query
-                redirect_params = urllib.parse.parse_qs(query)
-                auth_code = redirect_params['code'][0]
-                _LOGGER.debug("Code %s", auth_code)
 
-            auth_token_data = { 'grant_type': 'authorization_code', 'client_id': self.porscheAPIClientID,
-                    'redirect_uri': self.porscheAPIRedirectURI, 'code': auth_code, 'prompt': 'none',
-                    'code_verifier': code_verifier }
-            _LOGGER.debug("Data %s", auth_token_data)
+            ## Get second token 
+            #code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
+            #code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
 
-            async with self.websession.post(self.porscheAPIToken, data=auth_token_data) as resp:
-                token_data = await resp.json()
-                _LOGGER.debug('Token data %s', token_data)
-                self.id_token = token_data['id_token']
-                self.__sethead(
-                    access_token=token_data["access_token"], expires_in=token_data["expires_in"]
-                )
+            #code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+            #code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
+            #code_challenge = code_challenge.replace('=', '')
 
-            #self.refresh_token = auth["refresh_token"]
-            #self.token_refreshed = True
+            #auth_data = { 'scope': 'openid', 'response_type': 'code', 'access_type': 'offline', 'prompt': 'none',
+            #        'client_id': self.porscheAPIClientID2, 'redirect_uri': self.porscheAPIRedirectURI2,
+            #        'code_challenge': code_challenge, 'code_challenge_method': 'S256', 'response_mode': 'query',
+            #        'country': 'se', 'locale': 'sv_SE' }
 
-    async def get(self, url, params = None):
+            #async with self.websession.get(self.porscheAPIAuth, params=auth_data) as resp:
+            #    _LOGGER.debug("Login AUTH Headers %s", resp.headers)
+            #    print(resp.status)
+            #    print(await resp.text())
+            #    last_location = resp.history[len(resp.history) - 1].headers['Location']
+            #    query = urllib.parse.urlparse(last_location).query
+            #    redirect_params = urllib.parse.parse_qs(query)
+            #    auth_code = redirect_params['code'][0]
+            #    _LOGGER.debug("Code %s", auth_code)
+
+            #auth_token_data = { 'grant_type': 'authorization_code', 'client_id': self.porscheAPIClientID2,
+            #        'redirect_uri': self.porscheAPIRedirectURI2, 'code': auth_code, 'prompt': 'none',
+            #        'code_verifier': code_verifier }
+
+
+
+    async def _requestToken(self, application: Text):
+
+        _LOGGER.debug("Requesting access token for %s", application)
+
+        code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
+        code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
+
+        code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+        code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
+        code_challenge = code_challenge.replace('=', '')
+
+        auth_data = { 
+                'scope': 'openid',
+                'response_type': 'code',
+                'access_type': 'offline',
+                'prompt': 'none',
+                'client_id': self.porscheApplications[application]['client_id'],
+                'redirect_uri': self.porscheApplications[application]['redirect_uri'],
+                'code_challenge': code_challenge,
+                'code_challenge_method': 'S256'
+                }
+
+        async with self.websession.get(self.porscheAPIAuth, params=auth_data) as resp:
+            last_location = resp.history[len(resp.history) - 1].headers['Location']
+            query = urllib.parse.urlparse(last_location).query
+            redirect_params = urllib.parse.parse_qs(query)
+            auth_code = redirect_params['code'][0]
+            _LOGGER.debug("Code %s", auth_code)
+
+        auth_token_data = {
+                'grant_type': 'authorization_code', 
+                'client_id': self.porscheApplications[application]['client_id'],
+                'redirect_uri': self.porscheApplications[application]['redirect_uri'],
+                'code': auth_code,
+                'prompt': 'none',
+                'code_verifier': code_verifier 
+                }
+        _LOGGER.debug("Data %s", auth_token_data)
+
+        now = calendar.timegm(datetime.datetime.now().timetuple())
+        async with self.websession.post(self.porscheAPIToken, data=auth_token_data) as resp:
+            token_data = await resp.json()
+            jwt = self.jwt_payload_decode(token_data['id_token'])
+            self.porscheApplications[application]['bearer_token'] = token_data['access_token']
+            self.porscheApplications[application]['expiration'] = now + token_data['expires_in']
+            self.porscheApplications[application]['id_token'] = jwt
+            _LOGGER.debug('Token data for application %s %s', application, jwt)
+
+
+
+    async def get(self, url, params = None, application =  'portal'):
         try:
             await self.authFlow()
-            async with self.websession.get(url, params=params, headers=self.head) as resp:
+            headers = self._createhead(application)
+            async with self.websession.get(url, params=params, headers=headers) as resp:
                 return await resp.json()
         except aiohttp.ClientResponseError as exception_:
             raise PorscheException(exception_.status)
 
-    async def post(self, url, data=None):
+    async def post(self, url, data=None, application = 'portal'):
         try:
             await self.authFlow()
-            async with self.websession.post(url, data=data, headers=self.head) as resp:
+            headers = self._createhead(application)
+            async with self.websession.post(url, data=data, headers=headers) as resp:
                 return await resp.json()
         except aiohttp.ClientResponseError as exception_:
             raise PorscheException(exception_.status)
 
-    def __sethead(
-        self, access_token: Text, expires_in: int = 1800, expiration: int = 0
-    ):
-        """Set HTTP header."""
-        self.access_token = access_token
-        if expiration > 0:
-            self.expiration = expiration
-        else:
-            now = calendar.timegm(datetime.datetime.now().timetuple())
-            self.expiration = now + expires_in
-        self.head = {
-            "Authorization": f"Bearer {access_token}",
-            "apikey": self.porscheAPIClientID,
-            "User-Agent": self.user_agent,
-        }
+    def _createhead(self, application):
+        head = {
+            "Authorization": f"Bearer {self.porscheApplications[application]['bearer_token']}",
+            "apikey": self.porscheApplications[application]['client_id']
+            }
+        return head
+
+    def _b64_decode(self, data):
+        data += '=' * (4 - len(data) % 4)
+        return base64.b64decode(data).decode('utf-8')
+
+    def jwt_payload_decode(self, jwt):
+        _, payload, _ = jwt.split('.')
+        return json.loads(self._b64_decode(payload))
+
     async def close(self):
         await self.websession.close()
 

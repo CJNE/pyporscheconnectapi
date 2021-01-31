@@ -11,7 +11,8 @@ class Client:
 
 
     async def getVehicles(self):
-        vehicles = await self._connection.get("https://connect-portal.porsche.com/core/api/v3/de/de_DE/vehicles")
+        vehicles = await self._connection.get("https://connect-portal.porsche.com/core/api/v3/de/de_DE/vehicles",
+                application='portal')
         return vehicles
 
 
