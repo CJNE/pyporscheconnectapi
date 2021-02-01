@@ -42,6 +42,7 @@ async def main():
 
     if args.command == "list":
         data = await client.getVehicles()
+        print(json.dumps(data, indent=2))
     else:
         vins = []
         if args.vin is not None: vins = [ args.vin ]
@@ -72,8 +73,8 @@ async def main():
                 data = await client.getSpeedAlerts(vin, country=args.country, language=args.language)
             elif args.command == "theftalerts":
                 data = await client.getTheftAlerts(vin)
+            print(json.dumps(data, indent=2))
 
-    print(json.dumps(data, indent=2))
 
     await conn.close()
     with open(args.session_file, 'w', encoding='utf-8') as json_file:
