@@ -1,9 +1,36 @@
 # pyporscheconnectapi
 A python library for Porsche Connect API
 
+This is a very early release, things are changing rapidly so use at your own risk!
+
 *NOTE:* This work is not officially supported by Porsche and functionality can stop working at any time without warning
 
-## Usage
+## CLI usage
+
+A simple cli is provided with this library, it will cache tokens to a file to speed up invocations
+
+```
+usage: cli.py [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-a]
+              [-c COUNTRY] [-l LANGUAGE]
+              {list,overview,maintenance,summary,capabilities}
+
+Porsche Connct CLI.
+
+positional arguments:
+  {list,overview,maintenance,summary,capabilities}
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -e EMAIL, --email EMAIL
+  -p PASSWORD, --password PASSWORD
+  -s SESSION_FILE, --sessionfile SESSION_FILE
+  -v VIN, --vin VIN
+  -a, --all
+  -c COUNTRY, --country COUNTRY
+  -l LANGUAGE, --language LANGUAGE
+```
+
+## Library usage
 
 Install pyporscheconnectapi using pip (requires python > 3.6)
 
