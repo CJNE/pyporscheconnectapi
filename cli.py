@@ -13,7 +13,8 @@ logging.root.setLevel(logging.WARNING)
 
 
 parser = argparse.ArgumentParser(description='Porsche Connct CLI.')
-parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility'])
+parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
+    'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts'])
 parser.add_argument('-e', '--email', dest='email', required=True)
 parser.add_argument('-p', '--password', dest='password', required=True)
 parser.add_argument('-s', '--sessionfile', dest='session_file', default='.session')
@@ -40,8 +41,7 @@ async def main():
     client = Client(conn)
 
     if args.command == "list":
-        vehicles = await client.getVehicles()
-        print(json.dumps(vehicles, indent=2))
+        data = await client.getVehicles()
     else:
         vins = []
         if args.vin is not None: vins = [ args.vin ]
@@ -51,27 +51,29 @@ async def main():
         else:
             die("--vin or --all is required")
         for vin in vins:
+            data = {}
             if args.command == "overview":
-                data = await conn.get(f"https://api.porsche.com/service-vehicle/se/sv_SE/vehicle-data/{vin}/stored")
-                print(json.dumps(data, indent=2))
+                data = await client.getOverview(vin)
             elif args.command == "maintenance":
-                data = await conn.get(f"https://api.porsche.com/predictive-maintenance/information/{vin}")
-                print(json.dumps(data, indent=2))
+                data = await client.getMaintenance(vin)
             elif args.command == "summary":
-                data = await conn.get(f"https://api.porsche.com/service-vehicle/vehicle-summary/{vin}")
-                print(json.dumps(data, indent=2))
+                data = await client.getSummary(vin)
             elif args.command == "capabilities":
-                data = await conn.get(f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}")
-                print(json.dumps(data, indent=2))
+                data = await client.getCapabilities(vin)
+            elif args.command == "position":
+                data = await client.getPosition(vin)
             elif args.command == "emobility":
-                model = args.model
-                if model is None:
-                    data = await conn.get(f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}")
-                    model = data['carModel']
-                data = await conn.get(f"https://api.porsche.com/service-vehicle/{args.country.lower()}/{args.language.lower()}_{args.country.upper()}/e-mobility/{model}/{vin}?timezone={args.timezone}")
-                print(json.dumps(data, indent=2))
+                data = await client.getEmobility(vin, model=args.model, country=args.country, language=args.language, timezone=args.timezone)
+            elif args.command == "triplongterm":
+                data = await client.getTripLongTerm(vin, country=args.country, language=args.language)
+            elif args.command == "tripshortterm":
+                data = await client.getTripShortTerm(vin, country=args.country, language=args.language)
+            elif args.command == "speedalerts":
+                data = await client.getSpeedAlerts(vin, country=args.country, language=args.language)
+            elif args.command == "theftalerts":
+                data = await client.getTheftAlerts(vin)
 
-
+    print(json.dumps(data, indent=2))
 
     await conn.close()
     with open(args.session_file, 'w', encoding='utf-8') as json_file:

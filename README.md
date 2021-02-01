@@ -10,14 +10,14 @@ This is a very early release, things are changing rapidly so use at your own ris
 A simple cli is provided with this library, it will cache tokens to a file to speed up invocations
 
 ```
-usage: cli.py [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-a]
-              [-c COUNTRY] [-l LANGUAGE]
-              {list,overview,maintenance,summary,capabilities}
+usage: cli.py [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-m MODEL]
+              [-a] [-c COUNTRY] [-l LANGUAGE] [-z TIMEZONE]
+              {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
 
 Porsche Connct CLI.
 
 positional arguments:
-  {list,overview,maintenance,summary,capabilities}
+  {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -25,14 +25,17 @@ optional arguments:
   -p PASSWORD, --password PASSWORD
   -s SESSION_FILE, --sessionfile SESSION_FILE
   -v VIN, --vin VIN
+  -m MODEL, --model MODEL
   -a, --all
   -c COUNTRY, --country COUNTRY
   -l LANGUAGE, --language LANGUAGE
+  -z TIMEZONE, --timezone TIMEZONE
 ```
 
 ## Library usage
 
 Install pyporscheconnectapi using pip (requires python > 3.6)
+
 
 ### Example client usage
 ```
