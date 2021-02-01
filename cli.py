@@ -9,7 +9,7 @@ import logging
 import json
 
 logging.basicConfig()
-logging.root.setLevel(logging.DEBUG)
+logging.root.setLevel(logging.WARNING)
 
 
 parser = argparse.ArgumentParser(description='Porsche Connct CLI.')
