@@ -65,14 +65,7 @@ class Connection:
 
     async def _login(self):
         _LOGGER.debug("Start authentication, get initial state from login page....")
-        async with self.websession.get(self.porscheLogin) as resp:
-            cookies = self.websession.cookie_jar.filter_cookies(self.porscheCookiedomain)
-            sec = ''
-            resume = ''
-            state = ''
-            thirdPartyId = ''
-
-        login_data = { 'sec': sec, 'resume': resume, 'thirdPartyId': thirdPartyId, 'state': state, 'username':
+        login_data = { 'sec': '', 'resume': '', 'thirdPartyId': '', 'state': '', 'username':
                 self.email, 'password': self.password, 'keeploggedin': 'false' }
 
         _LOGGER.debug("POST authentication details....")
