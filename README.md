@@ -5,6 +5,22 @@ This is a very early release, things are changing rapidly so use at your own ris
 
 *NOTE:* This work is not officially supported by Porsche and functionality can stop working at any time without warning
 
+## Installation
+
+The easiest method is to install using pip3/pip (venv is also a good idea)
+```
+pip install pyporscheconnectapi
+```
+
+to update to the latest version
+
+```
+pip install pyporscheconnectapi -U
+```
+
+Setup will add a cli under the name porschecli, see below for usage
+
+
 ## CLI usage
 
 A simple cli is provided with this library, it will cache tokens to a file to speed up invocations
