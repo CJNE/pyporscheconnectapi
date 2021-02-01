@@ -32,6 +32,8 @@ class Connection:
         email: Text = None,
         password: Text = None,
         websession: aiohttp.ClientSession = None,
+        language: Text = 'de',
+        country: Text = 'DE',
         tokens = {}
     ) -> None:
         """Initialize connection object."""
@@ -50,7 +52,7 @@ class Connection:
                 'carcontrol': { 
                     'client_id': 'gZLSI7ThXFB4d2ld9t8Cx2DBRvGr1zN2',
                     'redirect_uri':  'https://connect-portal.porsche.com/myservices/auth/auth.html',
-                    'prefix': 'https://api.porsche.com/service-vehicle/'
+                    'prefix': 'https://api.porsche.com/'
                     }
                 }
 
@@ -59,6 +61,8 @@ class Connection:
         self.password = password
         self.websession = websession
         self._isLoggedIn = False
+        self.country = country
+        self.language = language
         if self.websession == None:
             self.websession = aiohttp.ClientSession()
 
@@ -74,8 +78,8 @@ class Connection:
         self._isLoggedIn = True
 
 
-    async def _requestToken(self, application: Dict):
-        if not self._isLoggedIn:
+    async def _requestToken(self, application: Dict):#, wasExpired = False):
+        if not self._isLoggedIn:# or wasExpired:
             await self._login()
 
         _LOGGER.debug("Requesting access token for client id %s", application['client_id'])
@@ -147,20 +151,25 @@ class Connection:
     def _applicationForURL(self, url):
        for key in self.porscheApplications:
            app = self.porscheApplications[key]
-           if url.startswith(app['prefix']): 
+           if url.startswith(app['prefix']):
                return app
-       # else raise an exception
-       raise f"Unsupported URL prefix {url}"
+       # else return None
+       return None
 
     async def _createhead(self, application):
+        # If no application matched the request URL then no auth headers are added
+        if application is None:
+            return {}
         now = calendar.timegm(datetime.datetime.now().timetuple())
         token = self.tokens.get(application['client_id'], None)
         if token is None or token['expiration'] < now:
-            token = await self._requestToken(application)
+            token = await self._requestToken(application)#, wasExpired=(token['expiration'] < now))
             self.tokens[application['client_id']] = token
         head = {
             "Authorization": f"Bearer {token['access_token']}",
-            "apikey": token['apikey']
+            "apikey": token['apikey'],
+            "x-vrs-url-country": self.country.lower(),
+            "x-vrs-url-language": f"{self.language.lower()}_{self.country.upper()}"
             }
         return head
 
