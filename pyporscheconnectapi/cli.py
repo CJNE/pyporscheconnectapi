@@ -2,7 +2,7 @@ import argparse
 import asyncio
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.client import Client
-from sys import argv
+import sys
 import logging
 import json
 
@@ -32,7 +32,7 @@ async def main(args):
             vehicles = await client.getVehicles()
             vins = map(lambda v : v['vin'], vehicles)
         else:
-            die("--vin or --all is required")
+            sys.exit("--vin or --all is required")
         for vin in vins:
             data = {}
             if args.command == "overview":
@@ -63,7 +63,7 @@ async def main(args):
         json.dump(conn.tokens, json_file, ensure_ascii=False, indent=2)
 
 def cli():
-    parser = argparse.ArgumentParser(description='Porsche Connct CLI.')
+    parser = argparse.ArgumentParser(description='Porsche Connect CLI.')
     parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
         'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts'])
     parser.add_argument('-e', '--email', dest='email', required=True)

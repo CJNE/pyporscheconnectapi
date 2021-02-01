@@ -30,7 +30,7 @@ usage: porschecli [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-m MODEL
               [-a] [-c COUNTRY] [-l LANGUAGE] [-z TIMEZONE]
               {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
 
-Porsche Connct CLI.
+Porsche Connect CLI.
 
 positional arguments:
   {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
