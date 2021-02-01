@@ -10,7 +10,7 @@ This is a very early release, things are changing rapidly so use at your own ris
 A simple cli is provided with this library, it will cache tokens to a file to speed up invocations
 
 ```
-usage: cli.py [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-m MODEL]
+usage: porschecli [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-m MODEL]
               [-a] [-c COUNTRY] [-l LANGUAGE] [-z TIMEZONE]
               {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
 
