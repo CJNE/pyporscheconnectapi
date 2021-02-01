@@ -13,14 +13,16 @@ logging.root.setLevel(logging.WARNING)
 
 
 parser = argparse.ArgumentParser(description='Porsche Connct CLI.')
-parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities'])
+parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility'])
 parser.add_argument('-e', '--email', dest='email', required=True)
 parser.add_argument('-p', '--password', dest='password', required=True)
 parser.add_argument('-s', '--sessionfile', dest='session_file', default='.session')
 parser.add_argument('-v', '--vin', dest='vin', default=None)
+parser.add_argument('-m', '--model', dest='model', default=None)
 parser.add_argument('-a', '--all', dest='all', action='store_true')
 parser.add_argument('-c', '--country', dest='country', default='de')
 parser.add_argument('-l', '--language', dest='language', default='DE')
+parser.add_argument('-z', '--timezone', dest='timezone', default='Europe/Stockholm')
 
 args = parser.parse_args()
 
@@ -61,6 +63,14 @@ async def main():
             elif args.command == "capabilities":
                 data = await conn.get(f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}")
                 print(json.dumps(data, indent=2))
+            elif args.command == "emobility":
+                model = args.model
+                if model is None:
+                    data = await conn.get(f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}")
+                    model = data['carModel']
+                data = await conn.get(f"https://api.porsche.com/service-vehicle/{args.country.lower()}/{args.language.lower()}_{args.country.upper()}/e-mobility/{model}/{vin}?timezone={args.timezone}")
+                print(json.dumps(data, indent=2))
+
 
 
     await conn.close()
