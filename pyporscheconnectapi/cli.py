@@ -2,6 +2,7 @@ import argparse
 import asyncio
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.client import Client
+from pyporscheconnectapi.exceptions import WrongCredentials
 import sys
 import logging
 import json
@@ -22,41 +23,46 @@ async def main(args):
     conn = Connection(args.email, args.password, tokens=tokens, country=args.country, language=args.language)
     client = Client(conn)
 
-    if args.command == "list":
-        data = await client.getVehicles()
-        print(json.dumps(data, indent=2))
-    else:
-        vins = []
-        if args.vin is not None: vins = [ args.vin ]
-        elif args.all:
-            vehicles = await client.getVehicles()
-            vins = map(lambda v : v['vin'], vehicles)
-        else:
-            sys.exit("--vin or --all is required")
-        for vin in vins:
-            data = {}
-            if args.command == "overview":
-                data = await client.getOverview(vin)
-            elif args.command == "maintenance":
-                data = await client.getMaintenance(vin)
-            elif args.command == "summary":
-                data = await client.getSummary(vin)
-            elif args.command == "capabilities":
-                data = await client.getCapabilities(vin)
-            elif args.command == "position":
-                data = await client.getPosition(vin)
-            elif args.command == "emobility":
-                data = await client.getEmobility(vin, model=args.model, country=args.country, language=args.language, timezone=args.timezone)
-            elif args.command == "triplongterm":
-                data = await client.getTripLongTerm(vin, country=args.country, language=args.language)
-            elif args.command == "tripshortterm":
-                data = await client.getTripShortTerm(vin, country=args.country, language=args.language)
-            elif args.command == "speedalerts":
-                data = await client.getSpeedAlerts(vin, country=args.country, language=args.language)
-            elif args.command == "theftalerts":
-                data = await client.getTheftAlerts(vin)
+    try:
+        if args.command == "list":
+            data = await client.getVehicles()
             print(json.dumps(data, indent=2))
-
+        elif args.command == "tokens":
+            data = await client.getAllTokens()
+            print(json.dumps(data, indent=2))
+        else:
+            vins = []
+            if args.vin is not None: vins = [ args.vin ]
+            elif args.all:
+                vehicles = await client.getVehicles()
+                vins = map(lambda v : v['vin'], vehicles)
+            else:
+                sys.exit("--vin or --all is required")
+            for vin in vins:
+                data = {}
+                if args.command == "overview":
+                    data = await client.getOverview(vin)
+                elif args.command == "maintenance":
+                    data = await client.getMaintenance(vin)
+                elif args.command == "summary":
+                    data = await client.getSummary(vin)
+                elif args.command == "capabilities":
+                    data = await client.getCapabilities(vin)
+                elif args.command == "position":
+                    data = await client.getPosition(vin)
+                elif args.command == "emobility":
+                    data = await client.getEmobility(vin, model=args.model, country=args.country, language=args.language, timezone=args.timezone)
+                elif args.command == "triplongterm":
+                    data = await client.getTripLongTerm(vin, country=args.country, language=args.language)
+                elif args.command == "tripshortterm":
+                    data = await client.getTripShortTerm(vin, country=args.country, language=args.language)
+                elif args.command == "speedalerts":
+                    data = await client.getSpeedAlerts(vin, country=args.country, language=args.language)
+                elif args.command == "theftalerts":
+                    data = await client.getTheftAlerts(vin)
+                print(json.dumps(data, indent=2))
+    except WrongCredentials:
+        sys.exit("Wrong email or password")
 
     await conn.close()
     with open(args.session_file, 'w', encoding='utf-8') as json_file:
@@ -65,7 +71,7 @@ async def main(args):
 def cli():
     parser = argparse.ArgumentParser(description='Porsche Connect CLI.')
     parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
-        'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts'])
+        'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts', 'tokens'])
     parser.add_argument('-e', '--email', dest='email', required=True)
     parser.add_argument('-p', '--password', dest='password', required=True)
     parser.add_argument('-s', '--sessionfile', dest='session_file', default='.session')

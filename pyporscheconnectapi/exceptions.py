@@ -41,19 +41,9 @@ class PorscheException(Exception):
             self.message = f"UNKNOWN_ERROR_{self.code}"
 
 
-class RetryLimitError(PorscheException):
-    """Class of exceptions for hitting retry limits."""
-
-    pass
-
-
-class IncompleteCredentials(PorscheException):
+class WrongCredentials(PorscheException):
     """Class of exceptions for incomplete credentials."""
 
     pass
 
 
-class UnknownPresetMode(PorscheException):
-    """Class of exceptions for incomplete credentials."""
-
-    pass

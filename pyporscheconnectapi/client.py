@@ -10,6 +10,12 @@ class Client:
         self._connection = connection
 
 
+    def isTokenRefreshed(self):
+        return self._connection.isTokenRefreshed
+
+    async def getAllTokens(self):
+        return await self._connection.getAllTokens()
+
     async def getVehicles(self):
         vehicles = await self._connection.get("https://connect-portal.porsche.com/core/api/v3/de/de_DE/vehicles")
         return vehicles

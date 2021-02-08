@@ -19,7 +19,7 @@ from typing import Dict, Text
 import aiohttp
 from yarl import URL
 
-from .exceptions import IncompleteCredentials, PorscheException
+from .exceptions import WrongCredentials, PorscheException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class Connection:
         websession: aiohttp.ClientSession = None,
         language: Text = 'de',
         country: Text = 'DE',
-        tokens = {}
+        tokens = None 
     ) -> None:
         """Initialize connection object."""
         self.porscheCookiedomain: Text = "https://login.porsche.com"
@@ -56,15 +56,18 @@ class Connection:
                     }
                 }
 
-        self.tokens = tokens
+        self.isTokenRefreshed = False
+        self.tokens = tokens or {}
         self.email = email
         self.password = password
         self.websession = websession
         self._isLoggedIn = False
         self.country = country
         self.language = language
+        
         if self.websession == None:
             self.websession = aiohttp.ClientSession()
+        _LOGGER.debug("New connection created")
 
 
     async def _login(self):
@@ -74,12 +77,30 @@ class Connection:
 
         _LOGGER.debug("POST authentication details....")
         async with self.websession.post(self.porscheLoginAuth,  data=login_data, max_redirects=30) as resp:
-            _LOGGER.debug("Login AUTH Headers %s", resp.headers)
+            # In case of wrong credentials there is a state param in the redirect url
+            last_location = resp.history[len(resp.history) - 1].headers['Location']
+            query = urllib.parse.urlparse(last_location).query
+            redirect_params = urllib.parse.parse_qs(query)
+            if "state" in redirect_params and redirect_params["state"][0] == "WRONG_CREDENTIALS":
+                raise WrongCredentials("Wrong email or password")
+
         self._isLoggedIn = True
+        return True
 
 
-    async def _requestToken(self, application: Dict):#, wasExpired = False):
-        if not self._isLoggedIn:# or wasExpired:
+    async def getAllTokens(self):
+        now = calendar.timegm(datetime.datetime.now().timetuple())
+        for applicationKey in self.porscheApplications:
+            application = self.porscheApplications[applicationKey]
+            token = self.tokens.get(application['client_id'], None)
+            if token is None or token['expiration'] < now:
+                token = await self._requestToken(application)
+                self.tokens[application['client_id']] = token
+        self.isTokenRefreshed = False
+        return self.tokens
+
+    async def _requestToken(self, application: Dict, wasExpired=False):
+        if not self._isLoggedIn or wasExpired:
             await self._login()
 
         _LOGGER.debug("Requesting access token for client id %s", application['client_id'])
@@ -128,6 +149,7 @@ class Connection:
             token['decoded_token'] = jwt
             token['apikey'] = jwt['aud']
             _LOGGER.debug('Token: %s', token)
+            self.isTokenRefreshed = True
             return token
 
     async def get(self, url, params = None):
@@ -163,7 +185,7 @@ class Connection:
         now = calendar.timegm(datetime.datetime.now().timetuple())
         token = self.tokens.get(application['client_id'], None)
         if token is None or token['expiration'] < now:
-            token = await self._requestToken(application)#, wasExpired=(token['expiration'] < now))
+            token = await self._requestToken(application, wasExpired=(token is not None))
             self.tokens[application['client_id']] = token
         head = {
             "Authorization": f"Bearer {token['access_token']}",
