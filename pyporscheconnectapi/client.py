@@ -62,7 +62,7 @@ class Client:
         return await self._setDirectCharge(vin, 'true', waitForConfirmation=waitForConfirmation)
 
     async def directChargeOff(self, vin, waitForConfirmation=True):
-        return await self._setDirectCharge(vin, 'true', waitForConfirmation=waitForConfirmation)
+        return await self._setDirectCharge(vin, 'false', waitForConfirmation=waitForConfirmation)
 
     async def getVehicles(self):
         vehicles = await self._connection.get("https://connect-portal.porsche.com/core/api/v3/de/de_DE/vehicles")

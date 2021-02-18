@@ -25,15 +25,18 @@ Setup will add a cli under the name porschecli, see below for usage
 
 A simple cli is provided with this library, it will cache tokens to a file to speed up invocations
 
+If no email or passowrd is supplied as input arguments you will be prompted. Same goes for PIN (used to lock or unlock).
+The --nowait option will just request the action (or stored information) without waiting for confirmation.
 ```
-usage: porschecli [-h] -e EMAIL -p PASSWORD [-s SESSION_FILE] [-v VIN] [-m MODEL]
-              [-a] [-c COUNTRY] [-l LANGUAGE] [-z TIMEZONE]
-              {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
+usage: cli.py [-h] [-e EMAIL] [-p PASSWORD] [-s SESSION_FILE] [-v VIN]
+              [-n PIN] [-m MODEL] [-a] [-c COUNTRY] [-l LANGUAGE]
+              [-z TIMEZONE] [--nowait]
+              {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts,tokens,lock,unlock,climate-on,climate-off,directcharge-on,directcharge-off}
 
 Porsche Connect CLI.
 
 positional arguments:
-  {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts}
+  {list,overview,maintenance,summary,capabilities,emobility,position,triplongterm,tripshortterm,speedalerts,theftalerts,tokens,lock,unlock,climate-on,climate-off,directcharge-on,directcharge-off}
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,11 +44,13 @@ optional arguments:
   -p PASSWORD, --password PASSWORD
   -s SESSION_FILE, --sessionfile SESSION_FILE
   -v VIN, --vin VIN
+  -n PIN, --pin PIN
   -m MODEL, --model MODEL
   -a, --all
   -c COUNTRY, --country COUNTRY
   -l LANGUAGE, --language LANGUAGE
   -z TIMEZONE, --timezone TIMEZONE
+  --nowait
 ```
 
 ## Library usage
@@ -99,8 +104,6 @@ async def vehicles() -> None:
 loop = asyncio.get_event_loop()
 loop.run_until_complete(vehicles())
 ```
-
-
 
 
 ## Credits
