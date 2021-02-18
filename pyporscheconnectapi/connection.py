@@ -161,11 +161,11 @@ class Connection:
         except aiohttp.ClientResponseError as exception_:
             raise PorscheException(exception_.status)
 
-    async def post(self, url, data=None):
+    async def post(self, url, data=None, json=None):
         try:
             application = self._applicationForURL(url)
             headers = await self._createhead(application)
-            async with self.websession.post(url, data=data, headers=headers) as resp:
+            async with self.websession.post(url, data=data, json=json, headers=headers) as resp:
                 return await resp.json()
         except aiohttp.ClientResponseError as exception_:
             raise PorscheException(exception_.status)
