@@ -1,6 +1,5 @@
 from pyporscheconnectapi.connection import Connection
 import asyncio
-import json
 import datetime
 
 class Client:
