@@ -72,8 +72,7 @@ class Client:
 
     def _formatTimer(self, active, charge_settings, climate, time_date):
         """Format combined payload for charge & climate timer"""
-        #payload = {"active": active, "climatised": climate}
-        payload = {"active": active, "climatised": climate, "timerID": "2"}
+        payload = {"active": active, "climatised": climate}
         payload.update(charge_settings)
         payload.update(time_date)
         return payload
