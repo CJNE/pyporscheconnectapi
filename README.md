@@ -23,9 +23,9 @@ Setup will add a cli under the name porschecli, see below for usage
 
 ## CLI usage
 
-A simple cli is provided with this library, it will cache tokens to a file to speed up invocations
+A simple cli is provided with this library, it will cache tokens to a file to speed up invocations. It does not yet support the create/update/delete timer functionality which is present in the library.
 
-If no email or passowrd is supplied as input arguments you will be prompted. Same goes for PIN (used to lock or unlock).
+If no email or password is supplied as input arguments you will be prompted. Same goes for PIN (used to lock or unlock).
 The --nowait option will just request the action (or stored information) without waiting for confirmation.
 ```
 usage: cli.py [-h] [-e EMAIL] [-p PASSWORD] [-s SESSION_FILE] [-v VIN]
@@ -80,7 +80,7 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(vehicles())
 ```
 
-### Example connection usage for custom requests 
+### Example connection usage for custom requests
 ```
 import asyncio
 from pyporscheconnectapi.connection import Connection
@@ -95,7 +95,7 @@ async def vehicles() -> None:
     vehicles = await client.getVehicles()
     for vehicle in vehicles:
         print(f"VIN: {vehicle['vin']} Model: {vehicle['modelDescription']} Year: {vehicle['modelYear']}")
-        # Using connection.get will automatically add auth headers 
+        # Using connection.get will automatically add auth headers
         data = await conn.get(f"https://api.porsche.com/core/api/v3/se/sv_SE/vehicles/{vehicle['vin']}")
         print(f"Battery at {data['carControlData']['batteryLevel']['value']}%")
 
@@ -108,6 +108,3 @@ loop.run_until_complete(vehicles())
 
 ## Credits
 [evcc](https://github.com/andig/evcc) was a good resource for figuring out the Authentication flow
-
-
-
