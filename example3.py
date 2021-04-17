@@ -31,7 +31,7 @@ async def vehicles() -> None:
 
     # Create timer for 4 hours from now, non-repeating, climate and charge active
     time = datetime.now()+timedelta(hours=4)
-    #result = await client.newTimer(vin, time, active=True, climate=True, charge=True, target_charge=25)
+    result = await client.newTimer(vin, time, active=True, climate=True, charge=True, target_charge=25)
 
     # Uncomment to update timer #2 for 4 hours from now, repeating M/W/F,
     # only charging active with target of 25%
