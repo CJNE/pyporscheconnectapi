@@ -21,7 +21,7 @@ async def main(args):
     except json.decoder.JSONDecodeError:
         tokens = {}
 
-    email = args.email or input("Please enter porsche connect email: ")
+    email = args.email or input("Please enter Porsche Connect email: ")
     password = args.password or getpass()
     conn = Connection(email, password, tokens=tokens, country=args.country, language=args.language)
 

@@ -34,7 +34,7 @@ class Connection:
         websession: aiohttp.ClientSession = None,
         language: Text = 'de',
         country: Text = 'DE',
-        tokens = None 
+        tokens = None
     ) -> None:
         """Initialize connection object."""
         self.porscheCookiedomain: Text = "https://login.porsche.com"
@@ -45,11 +45,11 @@ class Connection:
         self.porscheAPI: Text = "https://connect-portal.porsche.com/core/api/v3/de/de_DE"
         self.porscheApplications = {
                 'portal': {
-                    'client_id': 'TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp', 
+                    'client_id': 'TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp',
                     'redirect_uri': 'https://my-static02.porsche.com/static/cms/auth.html',
                     'prefix': 'https://connect-portal.porsche.com/core/api/v3/'
                     },
-                'carcontrol': { 
+                'carcontrol': {
                     'client_id': 'gZLSI7ThXFB4d2ld9t8Cx2DBRvGr1zN2',
                     'redirect_uri':  'https://connect-portal.porsche.com/myservices/auth/auth.html',
                     'prefix': 'https://api.porsche.com/'
@@ -64,7 +64,7 @@ class Connection:
         self._isLoggedIn = False
         self.country = country
         self.language = language
-        
+
         if self.websession == None:
             self.websession = aiohttp.ClientSession()
         _LOGGER.debug("New connection created")
@@ -112,7 +112,7 @@ class Connection:
         code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
         code_challenge = code_challenge.replace('=', '')
 
-        auth_data = { 
+        auth_data = {
                 'scope': 'openid',
                 'response_type': 'code',
                 'access_type': 'offline',
@@ -131,7 +131,7 @@ class Connection:
             _LOGGER.debug("Code %s", auth_code)
 
         auth_token_data = {
-                'grant_type': 'authorization_code', 
+                'grant_type': 'authorization_code',
                 'client_id': application['client_id'],
                 'redirect_uri': application['redirect_uri'],
                 'code': auth_code,
@@ -166,6 +166,24 @@ class Connection:
             application = self._applicationForURL(url)
             headers = await self._createhead(application)
             async with self.websession.post(url, data=data, json=json, headers=headers) as resp:
+                return await resp.json()
+        except aiohttp.ClientResponseError as exception_:
+            raise PorscheException(exception_.status)
+
+    async def put(self, url, data=None, json=None):
+        try:
+            application = self._applicationForURL(url)
+            headers = await self._createhead(application)
+            async with self.websession.put(url, data=data, json=json, headers=headers) as resp:
+                return await resp.json()
+        except aiohttp.ClientResponseError as exception_:
+            raise PorscheException(exception_.status)
+
+    async def delete(self, url, data=None, json=None):
+        try:
+            application = self._applicationForURL(url)
+            headers = await self._createhead(application)
+            async with self.websession.delete(url, data=data, json=json, headers=headers) as resp:
                 return await resp.json()
         except aiohttp.ClientResponseError as exception_:
             raise PorscheException(exception_.status)
