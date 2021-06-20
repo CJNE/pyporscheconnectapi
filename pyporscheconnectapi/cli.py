@@ -72,9 +72,9 @@ async def main(args):
                 elif args.command == "climate-off":
                     data = await client.climateOff(vin, waitForConfirmation = not args.nowait)
                 elif args.command == "directcharge-on":
-                    data = await client.directChargeOn(vin, waitForConfirmation = not args.nowait)
+                    data = await client.directChargeOn(vin, model=args.model, waitForConfirmation = not args.nowait)
                 elif args.command == "directcharge-off":
-                    data = await client.directChargeOff(vin, waitForConfirmation = not args.nowait)
+                    data = await client.directChargeOff(vin, model=args.model, waitForConfirmation = not args.nowait)
                 elif args.command == 'lock' or args.command == 'unlock':
                     pin = args.pin
                     if pin is None:

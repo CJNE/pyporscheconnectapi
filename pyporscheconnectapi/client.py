@@ -39,10 +39,13 @@ class Client:
         result = await self._spinner(f"https://api.porsche.com/service-vehicle/se/sv_SE/e-mobility/{vin}/toggle-direct-climatisation/status/{progressResult['requestId']}")
         return result
 
-    async def _setDirectCharge(self, vin, action, country = 'de', language = 'de', waitForConfirmation=True):
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/toggle-direct-charging/{action}", json={})
+    async def _setDirectCharge(self, vin, action, model=None, country = 'de', language = 'de', waitForConfirmation=True):
+        if model is None:
+            data = await self.getCapabilities(vin)
+            model = data['carModel']
+        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/{model}/{vin}/toggle-direct-charging/{action}", json={})
         if not waitForConfirmation: return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/se/sv_SE/e-mobility/J1/{vin}/toggle-direct-charging/status/{progressResult['requestId']}")
+        result = await self._spinner(f"https://api.porsche.com/service-vehicle/se/sv_SE/e-mobility/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}")
         return result
 
 
