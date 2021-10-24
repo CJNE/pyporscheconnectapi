@@ -50,8 +50,8 @@ class Connection:
                     'prefix': 'https://connect-portal.porsche.com/core/api/v3/'
                     },
                 'carcontrol': {
-                    'client_id': 'gZLSI7ThXFB4d2ld9t8Cx2DBRvGr1zN2',
-                    'redirect_uri':  'https://connect-portal.porsche.com/myservices/auth/auth.html',
+                    'client_id': 'imeVsv86TpjM9beWJqI0sNMAip6ga05O',
+                    'redirect_uri':  'https://my.porsche.com/myservices/auth/auth.html',
                     'prefix': 'https://api.porsche.com/'
                     }
                 }
