@@ -132,3 +132,4 @@ dmypy.json
 # VIM stuff
 *.swp
 *.swo
+.direnv
