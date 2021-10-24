@@ -45,6 +45,7 @@ class Connection:
         self.porscheAPI: Text = "https://connect-portal.porsche.com/core/api/v3/de/de_DE"
         self.porscheApplications = {
                 'portal': {
+#                    'client_id': '4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA',
                     'client_id': 'TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp',
                     'redirect_uri': 'https://my-static02.porsche.com/static/cms/auth.html',
                     'prefix': 'https://connect-portal.porsche.com/core/api/v3/'
