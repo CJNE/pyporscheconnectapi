@@ -19,10 +19,27 @@ from typing import Dict, Text
 import aiohttp
 from yarl import URL
 
+try:
+    from rich import print
+except ImportError as e:
+    pass
+
 from .exceptions import WrongCredentials, PorscheException
 
 _LOGGER = logging.getLogger(__name__)
 
+async def on_request_start(
+        session, trace_config_ctx, params):
+    _LOGGER.debug("Starting request")
+    _LOGGER.debug(params)
+
+async def on_request_end(session, trace_config_ctx, params):
+    _LOGGER.debug("Ending request")
+    _LOGGER.debug(params)
+
+trace_config = aiohttp.TraceConfig()
+trace_config.on_request_start.append(on_request_start)
+trace_config.on_request_end.append(on_request_end)
 
 class Connection:
     """Connection to Porsche Connect API."""
@@ -48,10 +65,11 @@ class Connection:
 #                    'client_id': '4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA',
                     'client_id': 'TZ4Vf5wnKeipJxvatJ60lPHYEzqZ4WNp',
                     'redirect_uri': 'https://my-static02.porsche.com/static/cms/auth.html',
-                    'prefix': 'https://connect-portal.porsche.com/core/api/v3/'
+                    'prefix': 'https://api.porsche.com/core/api/v3/'
                     },
                 'carcontrol': {
-                    'client_id': 'imeVsv86TpjM9beWJqI0sNMAip6ga05O',
+                    'client_id': 'Ux8WmyzsOAGGmvmWnW7GLEjIILHEztAs',
+                    #'client_id': 'imeVsv86TpjM9beWJqI0sNMAip6ga05O',
                     'redirect_uri':  'https://my.porsche.com/myservices/auth/auth.html',
                     'prefix': 'https://api.porsche.com/'
                     }
@@ -67,7 +85,7 @@ class Connection:
         self.language = language
 
         if self.websession == None:
-            self.websession = aiohttp.ClientSession()
+            self.websession = aiohttp.ClientSession(trace_configs=[trace_config])
         _LOGGER.debug("New connection created")
 
 

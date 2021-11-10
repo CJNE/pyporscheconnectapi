@@ -37,40 +37,40 @@ class Client:
         return result
 
     async def _setClimate(self, vin, action, country = 'de', language = 'de', waitForConfirmation=True):
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/{vin}/toggle-direct-climatisation/{action}", json={})
+        progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/{vin}/toggle-direct-climatisation/{action}", json={})
         if not waitForConfirmation: return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/se/sv_SE/e-mobility/{vin}/toggle-direct-climatisation/status/{progressResult['requestId']}")
+        result = await self._spinner(f"https://api.porsche.com/e-mobility/se/sv_SE/{vin}/toggle-direct-climatisation/status/{progressResult['requestId']}")
         return result
 
     async def _setDirectCharge(self, vin, action, model=None, country = 'de', language = 'de', waitForConfirmation=True):
         if model is None:
             data = await self.getCapabilities(vin)
             model = data['carModel']
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/{model}/{vin}/toggle-direct-charging/{action}", json={})
+        progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/{model}/{vin}/toggle-direct-charging/{action}", json={})
         if not waitForConfirmation: return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/se/sv_SE/e-mobility/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}")
+        result = await self._spinner(f"https://api.porsche.com/e-mobility/se/sv_SE/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}")
         return result
 
     async def _addTimer(self, vin, timer, country = 'de', language = 'de', waitForConfirmation=True):
         """Add new charge & climate timer"""
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/timer", json=timer)
+        progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer", json=timer)
         if not waitForConfirmation: return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/action-status/{progressResult['actionId']}")
+        result = await self._spinner(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/action-status/{progressResult['actionId']}")
         return result
 
     async def _updateTimer(self, vin, timer, timerID='1', country = 'de', language = 'de', waitForConfirmation=True):
         """Update existing charge & climate timer"""
         timer.update({"timerID":timerID})
-        progressResult = await self._connection.put(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/timer", json=timer)
+        progressResult = await self._connection.put(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer", json=timer)
         if not waitForConfirmation: return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/action-status/{progressResult['actionId']}")
+        result = await self._spinner(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/action-status/{progressResult['actionId']}")
         return result
 
     async def _deleteTimer(self, vin, timerID='1', country = 'de', language = 'de', waitForConfirmation=True):
         """Delete existing charge & climate timer"""
-        progressResult = await self._connection.delete(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/timer/{timerID}")
+        progressResult = await self._connection.delete(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer/{timerID}")
         if not waitForConfirmation: return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/J1/{vin}/action-status/{progressResult['actionId']}")
+        result = await self._spinner(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/action-status/{progressResult['actionId']}")
         return result
 
     def _formatTimer(self, active, charge_settings, climate, time_date):
@@ -180,7 +180,7 @@ class Client:
         return await self._setDirectCharge(vin, 'false', waitForConfirmation=waitForConfirmation)
 
     async def getVehicles(self):
-        vehicles = await self._connection.get("https://connect-portal.porsche.com/core/api/v3/de/de_DE/vehicles")
+        vehicles = await self._connection.get("https://api.porsche.com/core/api/v3/se/sv_SE/vehicles")
         return vehicles
 
     async def getStoredOverview(self, vin):
@@ -229,7 +229,7 @@ class Client:
         if model is None:
             data = await self.getCapabilities(vin)
             model = data['carModel']
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/e-mobility/{model}/{vin}?timezone={timezone}")
+        data = await self._connection.get(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/{model}/{vin}?timezone={timezone}")
         return data
 
 
