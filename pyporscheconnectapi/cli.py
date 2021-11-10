@@ -1,12 +1,18 @@
 import argparse
 import asyncio
+import configparser
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.client import Client
 from pyporscheconnectapi.exceptions import WrongCredentials
+import os
 import sys
 import logging
 import json
 from getpass import getpass
+try:
+    from rich import print
+except ImportError as e:
+    pass
 
 logging.basicConfig()
 logging.root.setLevel(logging.WARNING)
@@ -93,20 +99,24 @@ async def main(args):
         json.dump(conn.tokens, json_file, ensure_ascii=False, indent=2)
 
 def cli():
+    config = configparser.ConfigParser()
+    config["porsche"] = {"email": "", "password": "", "session_file": ".session", "country": "de", "language": "DE",
+            "timezone": "Europe/Stockholm"}
+    config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
     parser = argparse.ArgumentParser(description='Porsche Connect CLI.')
     parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
         'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts', 'tokens', 'lock', 'unlock',
         'climate-on', 'climate-off', 'directcharge-on', 'directcharge-off'])
-    parser.add_argument('-e', '--email', dest='email', default=None)
-    parser.add_argument('-p', '--password', dest='password', default=None)
-    parser.add_argument('-s', '--sessionfile', dest='session_file', default='.session')
+    parser.add_argument('-e', '--email', dest='email', default=config.get('porsche', 'email'))
+    parser.add_argument('-p', '--password', dest='password', default=config.get('porsche', 'password'))
+    parser.add_argument('-s', '--sessionfile', dest='session_file', default=config.get('porsche', 'session_file'))
     parser.add_argument('-v', '--vin', dest='vin', default=None)
     parser.add_argument('-n', '--pin', dest='pin', default=None)
     parser.add_argument('-m', '--model', dest='model', default=None)
     parser.add_argument('-a', '--all', dest='all', action='store_true')
-    parser.add_argument('-c', '--country', dest='country', default='de')
-    parser.add_argument('-l', '--language', dest='language', default='DE')
-    parser.add_argument('-z', '--timezone', dest='timezone', default='Europe/Stockholm')
+    parser.add_argument('-c', '--country', dest='country', default=config.get('porsche', 'country'))
+    parser.add_argument('-l', '--language', dest='language', default=config.get('porsche', 'language'))
+    parser.add_argument('-z', '--timezone', dest='timezone', default=config.get('porsche', 'timezone'))
     parser.add_argument('--nowait', dest='nowait', action='store_true')
 
     args = parser.parse_args()
