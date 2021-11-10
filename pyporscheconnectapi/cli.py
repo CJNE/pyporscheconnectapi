@@ -100,7 +100,7 @@ async def main(args):
 
 def cli():
     config = configparser.ConfigParser()
-    config["porsche"] = {"email": "", "password": "", "session_file": ".session", "country": "de", "language": "DE",
+    config["porsche"] = {"email": "", "password": "", "session_file": ".session", "country": "DE", "language": "de",
             "timezone": "Europe/Stockholm"}
     config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
     parser = argparse.ArgumentParser(description='Porsche Connect CLI.')

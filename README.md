@@ -25,7 +25,7 @@ Setup will add a cli under the name porschecli, see below for usage
 
 A simple cli is provided with this library, it will cache tokens to a file to speed up invocations. It does not yet support the create/update/delete timer functionality which is present in the library.
 
-If no email or password is supplied as input arguments you will be prompted. Same goes for PIN (used to lock or unlock).
+If no email or password is supplied as input arguments and no config file with those details is found you will be prompted. Same goes for PIN (used to lock or unlock).
 The --nowait option will just request the action (or stored information) without waiting for confirmation.
 ```
 usage: cli.py [-h] [-e EMAIL] [-p PASSWORD] [-s SESSION_FILE] [-v VIN]
@@ -51,6 +51,20 @@ optional arguments:
   -l LANGUAGE, --language LANGUAGE
   -z TIMEZONE, --timezone TIMEZONE
   --nowait
+```
+
+## Config file (for CLI)
+
+A config file is searched for in ~/.porscheconnect.cfg and ./.porscheconnect.cfg
+The format is:
+
+```
+[porsche]
+email=<your email>
+password=<your password>
+country=<country iso code, default DE>
+language=<lang abbreviation, default de>
+timezone=<default Europe/Stockholm>
 ```
 
 ## Library usage
