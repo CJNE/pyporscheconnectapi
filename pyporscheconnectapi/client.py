@@ -173,10 +173,10 @@ class Client:
     async def climateOff(self, vin, waitForConfirmation=True):
         return await self._setClimate(vin,'false', waitForConfirmation=waitForConfirmation)
 
-    async def directChargeOn(self, vin, model, waitForConfirmation=True):
+    async def directChargeOn(self, vin, model=None, waitForConfirmation=True):
         return await self._setDirectCharge(vin, 'true', model, waitForConfirmation=waitForConfirmation)
 
-    async def directChargeOff(self, vin, model, waitForConfirmation=True):
+    async def directChargeOff(self, vin, model=None, waitForConfirmation=True):
         return await self._setDirectCharge(vin, 'false', model, waitForConfirmation=waitForConfirmation)
 
     async def getVehicles(self):
