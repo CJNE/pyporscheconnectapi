@@ -1,6 +1,8 @@
 from pyporscheconnectapi.connection import Connection
 import asyncio
 import datetime
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 class Client:
     """Client for Porsche Connect API."""
