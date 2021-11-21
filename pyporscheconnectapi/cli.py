@@ -85,14 +85,13 @@ async def main(args):
                     data = await client.honkAndFlash(vin, waitForConfirmation = not args.nowait)
                 elif args.command == "flash":
                     data = await client.flash(vin, waitForConfirmation = not args.nowait)
-                elif args.command == 'lock' or args.command == 'unlock':
+                elif args.command == "lock":
+                    data = await client.lock(vin, waitForConfirmation = not args.nowait)
+                elif args.command == 'unlock':
                     pin = args.pin
                     if pin is None:
                         pin = getpass("PIN code: ")
-                    if(args.command == 'lock'):
-                        data = await client.lock(vin, pin, waitForConfirmation = not args.nowait)
-                    else:
-                        data = await client.unlock(vin, pin, waitForConfirmation = not args.nowait)
+                    data = await client.unlock(vin, pin, waitForConfirmation = not args.nowait)
 
                 print(json.dumps(data, indent=2))
     except WrongCredentials:

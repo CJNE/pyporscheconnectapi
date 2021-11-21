@@ -173,8 +173,8 @@ class Client:
         """
         return await self._deleteTimer(vin, timerID, waitForConfirmation=waitForConfirmation)
 
-    async def lock(self, vin, pin, waitForConfirmation=True):
-        return await self._lockUnlock(vin, pin, 'lock', waitForConfirmation=waitForConfirmation)
+    async def lock(self, vin, waitForConfirmation=True):
+        return await self._lockUnlock(vin, None, 'lock', waitForConfirmation=waitForConfirmation)
 
     async def unlock(self, vin, pin, waitForConfirmation=True):
         return await self._lockUnlock(vin, pin, 'unlock', waitForConfirmation=waitForConfirmation)
