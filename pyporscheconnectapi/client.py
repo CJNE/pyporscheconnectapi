@@ -51,6 +51,18 @@ class Client:
         result = await self._spinner(f"https://api.porsche.com/e-mobility/se/sv_SE/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}")
         return result
 
+    async def _setHonkAndFlash(self, vin, waitForConfirmation=True):
+        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/honk-and-flash", json={})
+        if not waitForConfirmation: return progressResult
+        result = await self._spinner(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/{progressResult['id']}/status")
+        return result
+
+    async def _setFlash(self, vin, waitForConfirmation=True):
+        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/flash", json={})
+        if not waitForConfirmation: return progressResult
+        result = await self._spinner(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/{progressResult['id']}/status")
+        return result
+
     async def _addTimer(self, vin, timer, country = 'de', language = 'de', waitForConfirmation=True):
         """Add new charge & climate timer"""
         progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer", json=timer)
@@ -178,6 +190,12 @@ class Client:
 
     async def directChargeOff(self, vin, model=None, waitForConfirmation=True):
         return await self._setDirectCharge(vin, 'false', model, waitForConfirmation=waitForConfirmation)
+
+    async def honkAndFlash(self, vin, waitForConfirmation=True):
+        return await self._setHonkAndFlash(vin, waitForConfirmation=waitForConfirmation)
+
+    async def flash(self, vin, waitForConfirmation=True):
+        return await self._setFlash(vin, waitForConfirmation=waitForConfirmation)
 
     async def getVehicles(self):
         vehicles = await self._connection.get("https://api.porsche.com/core/api/v3/se/sv_SE/vehicles")
