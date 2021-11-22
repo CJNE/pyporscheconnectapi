@@ -27,6 +27,8 @@ async def main(args):
     except json.decoder.JSONDecodeError:
         tokens = {}
 
+    if args.debug:
+        logging.root.setLevel(logging.DEBUG)
     email = args.email or input("Please enter Porsche Connect email: ")
     password = args.password or getpass()
     conn = Connection(email, password, tokens=tokens, country=args.country, language=args.language)
@@ -110,6 +112,7 @@ def cli():
     parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
         'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts', 'tokens', 'lock', 'unlock',
         'climate-on', 'climate-off', 'directcharge-on', 'directcharge-off', 'honk', 'flash'])
+    parser.add_argument("-d", "--debug", dest="debug", action="store_true")
     parser.add_argument('-e', '--email', dest='email', default=config.get('porsche', 'email'))
     parser.add_argument('-p', '--password', dest='password', default=config.get('porsche', 'password'))
     parser.add_argument('-s', '--sessionfile', dest='session_file', default=config.get('porsche', 'session_file'))
