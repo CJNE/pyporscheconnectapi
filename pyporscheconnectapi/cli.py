@@ -96,8 +96,8 @@ async def main(args):
                     data = await client.unlock(vin, pin, waitForConfirmation = not args.nowait)
 
                 print(json.dumps(data, indent=2))
-    except WrongCredentials:
-        sys.exit("Wrong email or password")
+    except WrongCredentials as e:
+        sys.exit(e.message)
 
     await conn.close()
     with open(args.session_file, 'w', encoding='utf-8') as json_file:

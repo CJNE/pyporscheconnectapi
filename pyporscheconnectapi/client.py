@@ -1,4 +1,6 @@
 from pyporscheconnectapi.connection import Connection
+from pyporscheconnectapi.exceptions import WrongCredentials
+
 import asyncio
 import datetime
 import logging
@@ -32,6 +34,11 @@ class Client:
 
     async def _lockUnlock(self, vin, pin, action, waitForConfirmation=True):
         progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}", json={ 'pin': pin })
+        error = progressResult.get('pcckErrorKey', None)
+        if error == 'INCORRECT':
+            raise WrongCredentials("PIN code was incorrect")
+        elif error == 'LOCKED_60_MINUTES':
+            raise WrongCredentials("Too many failed attempts, locked 60 minutes")
         if not waitForConfirmation: return progressResult
         result = await self._spinner(f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{progressResult['requestId']}/status")
         if(result['status'] == 'SUCCESS'):
