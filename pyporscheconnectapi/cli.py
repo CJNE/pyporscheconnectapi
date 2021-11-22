@@ -63,6 +63,8 @@ async def main(args):
                     data = await client.getSummary(vin)
                 elif args.command == "capabilities":
                     data = await client.getCapabilities(vin)
+                elif args.command == "services":
+                    data = await client.getServices(vin)
                 elif args.command == "position":
                     data = await client.getPosition(vin)
                 elif args.command == "emobility":
@@ -109,7 +111,7 @@ def cli():
             "timezone": "Europe/Stockholm"}
     config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
     parser = argparse.ArgumentParser(description='Porsche Connect CLI.')
-    parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
+    parser.add_argument('command', choices=['list', 'services', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
         'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts', 'tokens', 'lock', 'unlock',
         'climate-on', 'climate-off', 'directcharge-on', 'directcharge-off', 'honk', 'flash'])
     parser.add_argument("-d", "--debug", dest="debug", action="store_true")

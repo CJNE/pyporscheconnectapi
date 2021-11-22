@@ -228,6 +228,10 @@ class Client:
         data = await self._connection.get(f"https://api.porsche.com/service-vehicle/vehicle-summary/{vin}")
         return data
 
+    async def getServices(self, vin):
+        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/service-access/{vin}/details")
+        return data
+
     async def getCapabilities(self, vin):
         data = await self._connection.get(f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}")
         return data
