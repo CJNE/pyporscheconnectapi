@@ -81,14 +81,17 @@ async def main(args):
                     data = await client.directChargeOn(vin, model=args.model, waitForConfirmation = not args.nowait)
                 elif args.command == "directcharge-off":
                     data = await client.directChargeOff(vin, model=args.model, waitForConfirmation = not args.nowait)
-                elif args.command == 'lock' or args.command == 'unlock':
+                elif args.command == "honk":
+                    data = await client.honkAndFlash(vin, waitForConfirmation = not args.nowait)
+                elif args.command == "flash":
+                    data = await client.flash(vin, waitForConfirmation = not args.nowait)
+                elif args.command == "lock":
+                    data = await client.lock(vin, waitForConfirmation = not args.nowait)
+                elif args.command == 'unlock':
                     pin = args.pin
                     if pin is None:
                         pin = getpass("PIN code: ")
-                    if(args.command == 'lock'):
-                        data = await client.lock(vin, pin, waitForConfirmation = not args.nowait)
-                    else:
-                        data = await client.unlock(vin, pin, waitForConfirmation = not args.nowait)
+                    data = await client.unlock(vin, pin, waitForConfirmation = not args.nowait)
 
                 print(json.dumps(data, indent=2))
     except WrongCredentials:
@@ -106,7 +109,7 @@ def cli():
     parser = argparse.ArgumentParser(description='Porsche Connect CLI.')
     parser.add_argument('command', choices=['list', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
         'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts', 'tokens', 'lock', 'unlock',
-        'climate-on', 'climate-off', 'directcharge-on', 'directcharge-off'])
+        'climate-on', 'climate-off', 'directcharge-on', 'directcharge-off', 'honk', 'flash'])
     parser.add_argument('-e', '--email', dest='email', default=config.get('porsche', 'email'))
     parser.add_argument('-p', '--password', dest='password', default=config.get('porsche', 'password'))
     parser.add_argument('-s', '--sessionfile', dest='session_file', default=config.get('porsche', 'session_file'))
