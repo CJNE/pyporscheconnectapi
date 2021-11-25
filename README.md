@@ -1,7 +1,15 @@
 # pyporscheconnectapi
 A python library for Porsche Connect API
 
-This is a very early release, things are changing rapidly so use at your own risk!
+This library will let you access your car equipped with Porsche Connect. It does not work with the predecessor Porsche Car Connect.
+Porsche Connect is available for the following Porsche models:
+
+* Taycan
+* 911 (from 992)
+* Cayenne (from 2017, E3)
+* Panamera (from 2021, G2 PA)
+
+A Porsche Connect subscription alse needs to be active for it to work.
 
 *NOTE:* This work is not officially supported by Porsche and functionality can stop working at any time without warning
 
