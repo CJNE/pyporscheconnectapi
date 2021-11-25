@@ -9,6 +9,9 @@ Porsche Connect is available for the following Porsche models:
 * Cayenne (from 2017, E3)
 * Panamera (from 2021, G2 PA)
 
+You can also take a look here, select your model and see if your model has support for Porsche Connect:
+https://connect-store.porsche.com/
+
 A Porsche Connect subscription alse needs to be active for it to work.
 
 *NOTE:* This work is not officially supported by Porsche and functionality can stop working at any time without warning
