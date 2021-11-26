@@ -137,12 +137,6 @@ def cli():
         "timezone": "Europe/Stockholm",
     }
     config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
-<<<<<<< HEAD
-    parser = argparse.ArgumentParser(description='Porsche Connect CLI.')
-    parser.add_argument('command', choices=['list', 'services', 'permissions', 'overview', 'maintenance', 'summary', 'capabilities', 'emobility',
-        'position', 'triplongterm', 'tripshortterm', 'speedalerts', 'theftalerts', 'tokens', 'lock', 'unlock',
-        'climate-on', 'climate-off', 'directcharge-on', 'directcharge-off', 'honk', 'flash'])
-=======
     parser = argparse.ArgumentParser(description="Porsche Connect CLI.")
     parser.add_argument(
         "command",
@@ -170,7 +164,6 @@ def cli():
             "flash",
         ],
     )
->>>>>>> df703d4 (Added country, language and timezone to Client init and removed them from function defs)
     parser.add_argument("-d", "--debug", dest="debug", action="store_true")
     parser.add_argument(
         "-e", "--email", dest="email", default=config.get("porsche", "email")
