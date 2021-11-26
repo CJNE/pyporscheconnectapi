@@ -118,16 +118,19 @@ class Client:
         )
         return result
 
-    async def _addTimer(self, vin, timer, waitForConfirmation=True):
+    async def _addTimer(self, vin, timer, model=None, waitForConfirmation=True):
         """Add new charge & climate timer"""
+        if model is None:
+            data = await self.getCapabilities(vin)
+            model = data["carModel"]
         progressResult = await self._connection.post(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/timer",
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/timer",
             json=timer,
         )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
         )
         return result
 
@@ -136,32 +139,39 @@ class Client:
         vin,
         timer,
         timerID="1",
+        model=None,
         waitForConfirmation=True,
     ):
+        if model is None:
+            data = await self.getCapabilities(vin)
+            model = data["carModel"]
         """Update existing charge & climate timer"""
         timer.update({"timerID": timerID})
         progressResult = await self._connection.put(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/timer",
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/timer",
             json=timer,
         )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
         )
         return result
 
     async def _deleteTimer(
-        self, vin, timerID="1", country="de", language="de", waitForConfirmation=True
+        self, vin, timerID="1", model=None, waitForConfirmation=True
     ):
+        if model is None:
+            data = await self.getCapabilities(vin)
+            model = data["carModel"]
         """Delete existing charge & climate timer"""
         progressResult = await self._connection.delete(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/timer/{timerID}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/timer/{timerID}"
         )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
         )
         return result
 
@@ -235,6 +245,7 @@ class Client:
         target_charge=10,
         climate=False,
         repeat_days=[],
+        model=None,
         waitForConfirmation=True,
     ):
         """Create a new timer on the vehicle
@@ -253,7 +264,7 @@ class Client:
         charge_timer = self._formatChargeTimer(charge, target_charge)
         full_timer = self._formatTimer(active, charge_timer, climate, timer_time)
         return await self._addTimer(
-            vin, full_timer, waitForConfirmation=waitForConfirmation
+            vin, full_timer, model, waitForConfirmation=waitForConfirmation
         )
 
     async def updateTimer(
@@ -266,6 +277,7 @@ class Client:
         target_charge=10,
         climate=False,
         repeat_days=[],
+        model=None,
         waitForConfirmation=True,
     ):
         """Update an existing timer on the vehicle
@@ -283,17 +295,17 @@ class Client:
         charge_timer = self._formatChargeTimer(charge, target_charge)
         full_timer = self._formatTimer(active, charge_timer, climate, timer_time)
         return await self._updateTimer(
-            vin, full_timer, timerID, waitForConfirmation=waitForConfirmation
+            vin, full_timer, timerID, model, waitForConfirmation=waitForConfirmation
         )
 
-    async def deleteTimer(self, vin, timerID="1", waitForConfirmation=True):
+    async def deleteTimer(self, vin, timerID="1", model=None, waitForConfirmation=True):
         """Delete an existing timer on the vehicle
         Parameters:
         vin (string): Vehicle VIN
         timerId (string): Target timer (numeric string)
         """
         return await self._deleteTimer(
-            vin, timerID, waitForConfirmation=waitForConfirmation
+            vin, timerID, model, waitForConfirmation=waitForConfirmation
         )
 
     async def lock(self, vin, waitForConfirmation=True):
