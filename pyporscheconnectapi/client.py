@@ -4,6 +4,7 @@ from pyporscheconnectapi.exceptions import WrongCredentials
 import asyncio
 import datetime
 import logging
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -12,9 +13,16 @@ class Client:
 
     def __init__(
         self,
-        connection: Connection
+        connection: Connection,
+        country="de",
+        language="de",
+        timezone="Europe/Stockholm",
     ) -> None:
         self._connection = connection
+        self.country = country
+        self.language = language
+        self.timezone = timezone
+        self.locale_str = f"{country.lower()}/{language.lower()}_{country.upper()}"
 
     def isTokenRefreshed(self):
         return self._connection.isTokenRefreshed
@@ -25,82 +33,136 @@ class Client:
     async def _spinner(self, url):
         while True:
             data = await self._connection.get(url)
-            if 'status' in data and data['status'] != 'IN_PROGRESS':
+            if "status" in data and data["status"] != "IN_PROGRESS":
                 break
-            elif 'actionState' in data and data['actionState'] != 'IN_PROGRESS':
+            elif "actionState" in data and data["actionState"] != "IN_PROGRESS":
                 break
             await asyncio.sleep(1)
         return data
 
     async def _lockUnlock(self, vin, pin, action, waitForConfirmation=True):
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}", json={'pin': pin})
-        error = progressResult.get('pcckErrorKey', None)
-        if error == 'INCORRECT':
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}",
+            json={"pin": pin},
+        )
+        error = progressResult.get("pcckErrorKey", None)
+        if error == "INCORRECT":
             raise WrongCredentials("PIN code was incorrect")
-        elif error == 'LOCKED_60_MINUTES':
-            raise WrongCredentials(
-                "Too many failed attempts, locked 60 minutes")
+        elif error == "LOCKED_60_MINUTES":
+            raise WrongCredentials("Too many failed attempts, locked 60 minutes")
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{progressResult['requestId']}/status")
-        if(result['status'] == 'SUCCESS'):
-            result = await self._connection.get(f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/last-actions")
+        result = await self._spinner(
+            f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{progressResult['requestId']}/status"
+        )
+        if result["status"] == "SUCCESS":
+            result = await self._connection.get(
+                f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/last-actions"
+            )
         return result
 
-    async def _setClimate(self, vin, action, country='de', language='de', waitForConfirmation=True):
-        progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/{vin}/toggle-direct-climatisation/{action}", json={})
+    async def _setClimate(self, vin, action, waitForConfirmation=True):
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{vin}/toggle-direct-climatisation/{action}",
+            json={},
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/e-mobility/se/sv_SE/{vin}/toggle-direct-climatisation/status/{progressResult['requestId']}")
+        result = await self._spinner(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{vin}/toggle-direct-climatisation/status/{progressResult['requestId']}"
+        )
         return result
 
-    async def _setDirectCharge(self, vin, action, model=None, country='de', language='de', waitForConfirmation=True):
+    async def _setDirectCharge(
+        self,
+        vin,
+        action,
+        model=None,
+        waitForConfirmation=True,
+    ):
         if model is None:
             data = await self.getCapabilities(vin)
-            model = data['carModel']
-        progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/{model}/{vin}/toggle-direct-charging/{action}", json={})
+            model = data["carModel"]
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/{action}",
+            json={},
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/e-mobility/se/sv_SE/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}")
+        result = await self._spinner(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}"
+        )
         return result
 
     async def _setHonkAndFlash(self, vin, waitForConfirmation=True):
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/honk-and-flash", json={})
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/honk-and-flash",
+            json={},
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/{progressResult['id']}/status")
+        result = await self._spinner(
+            f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/{progressResult['id']}/status"
+        )
         return result
 
     async def _setFlash(self, vin, waitForConfirmation=True):
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/flash", json={})
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/flash",
+            json={},
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/{progressResult['id']}/status")
+        result = await self._spinner(
+            f"https://api.porsche.com/service-vehicle/honk-and-flash/{vin}/{progressResult['id']}/status"
+        )
         return result
 
-    async def _addTimer(self, vin, timer, country='de', language='de', waitForConfirmation=True):
+    async def _addTimer(self, vin, timer, waitForConfirmation=True):
         """Add new charge & climate timer"""
-        progressResult = await self._connection.post(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer", json=timer)
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/timer",
+            json=timer,
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/action-status/{progressResult['actionId']}")
+        result = await self._spinner(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/action-status/{progressResult['actionId']}"
+        )
         return result
 
-    async def _updateTimer(self, vin, timer, timerID='1', country='de', language='de', waitForConfirmation=True):
+    async def _updateTimer(
+        self,
+        vin,
+        timer,
+        timerID="1",
+        waitForConfirmation=True,
+    ):
         """Update existing charge & climate timer"""
         timer.update({"timerID": timerID})
-        progressResult = await self._connection.put(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer", json=timer)
+        progressResult = await self._connection.put(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/timer",
+            json=timer,
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/action-status/{progressResult['actionId']}")
+        result = await self._spinner(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/action-status/{progressResult['actionId']}"
+        )
         return result
 
-    async def _deleteTimer(self, vin, timerID='1', country='de', language='de', waitForConfirmation=True):
+    async def _deleteTimer(
+        self, vin, timerID="1", country="de", language="de", waitForConfirmation=True
+    ):
         """Delete existing charge & climate timer"""
-        progressResult = await self._connection.delete(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/timer/{timerID}")
+        progressResult = await self._connection.delete(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/timer/{timerID}"
+        )
         if not waitForConfirmation:
             return progressResult
-        result = await self._spinner(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/J1/{vin}/action-status/{progressResult['actionId']}")
+        result = await self._spinner(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/J1/{vin}/action-status/{progressResult['actionId']}"
+        )
         return result
 
     def _formatTimer(self, active, charge_settings, climate, time_date):
@@ -133,8 +195,15 @@ class Client:
             frequency = "CYCLIC"
         else:
             frequency = "SINGLE"
-        repeat_dict = {"MONDAY": False, "TUESDAY": False, "WEDNESDAY": False, "THURSDAY": False, "FRIDAY": False,
-                       "SATURDAY": False, "SUNDAY": False}
+        repeat_dict = {
+            "MONDAY": False,
+            "TUESDAY": False,
+            "WEDNESDAY": False,
+            "THURSDAY": False,
+            "FRIDAY": False,
+            "SATURDAY": False,
+            "SUNDAY": False,
+        }
         for i in repeat_days:
             if i == 0:
                 repeat_dict["MONDAY"] = True
@@ -151,10 +220,23 @@ class Client:
             elif i == 6:
                 repeat_dict["SUNDAY"] = True
 
-        return {"departureDateTime": time.isoformat(), "frequency": frequency, "weekDays": repeat_dict}
+        return {
+            "departureDateTime": time.isoformat(),
+            "frequency": frequency,
+            "weekDays": repeat_dict,
+        }
 
-    async def newTimer(self, vin, time, active=False, charge=False, target_charge=10,
-                       climate=False, repeat_days=[], waitForConfirmation=True):
+    async def newTimer(
+        self,
+        vin,
+        time,
+        active=False,
+        charge=False,
+        target_charge=10,
+        climate=False,
+        repeat_days=[],
+        waitForConfirmation=True,
+    ):
         """Create a new timer on the vehicle
         Parameters:
         vin (string): Vehicle VIN
@@ -169,12 +251,23 @@ class Client:
         """
         timer_time = self._formatTimerTime(time, repeat_days)
         charge_timer = self._formatChargeTimer(charge, target_charge)
-        full_timer = self._formatTimer(
-            active, charge_timer, climate, timer_time)
-        return await self._addTimer(vin, full_timer, waitForConfirmation=waitForConfirmation)
+        full_timer = self._formatTimer(active, charge_timer, climate, timer_time)
+        return await self._addTimer(
+            vin, full_timer, waitForConfirmation=waitForConfirmation
+        )
 
-    async def updateTimer(self, vin, time, timerID='1', active=False, charge=False, target_charge=10,
-                          climate=False, repeat_days=[], waitForConfirmation=True):
+    async def updateTimer(
+        self,
+        vin,
+        time,
+        timerID="1",
+        active=False,
+        charge=False,
+        target_charge=10,
+        climate=False,
+        repeat_days=[],
+        waitForConfirmation=True,
+    ):
         """Update an existing timer on the vehicle
         Parameters:
         vin (string): Vehicle VIN
@@ -188,35 +281,50 @@ class Client:
         """
         timer_time = self._formatTimerTime(time, repeat_days)
         charge_timer = self._formatChargeTimer(charge, target_charge)
-        full_timer = self._formatTimer(
-            active, charge_timer, climate, timer_time)
-        return await self._updateTimer(vin, full_timer, timerID, waitForConfirmation=waitForConfirmation)
+        full_timer = self._formatTimer(active, charge_timer, climate, timer_time)
+        return await self._updateTimer(
+            vin, full_timer, timerID, waitForConfirmation=waitForConfirmation
+        )
 
-    async def deleteTimer(self, vin, timerID='1', waitForConfirmation=True):
+    async def deleteTimer(self, vin, timerID="1", waitForConfirmation=True):
         """Delete an existing timer on the vehicle
         Parameters:
         vin (string): Vehicle VIN
         timerId (string): Target timer (numeric string)
         """
-        return await self._deleteTimer(vin, timerID, waitForConfirmation=waitForConfirmation)
+        return await self._deleteTimer(
+            vin, timerID, waitForConfirmation=waitForConfirmation
+        )
 
     async def lock(self, vin, waitForConfirmation=True):
-        return await self._lockUnlock(vin, None, 'lock', waitForConfirmation=waitForConfirmation)
+        return await self._lockUnlock(
+            vin, None, "lock", waitForConfirmation=waitForConfirmation
+        )
 
     async def unlock(self, vin, pin, waitForConfirmation=True):
-        return await self._lockUnlock(vin, pin, 'unlock', waitForConfirmation=waitForConfirmation)
+        return await self._lockUnlock(
+            vin, pin, "unlock", waitForConfirmation=waitForConfirmation
+        )
 
     async def climateOn(self, vin, waitForConfirmation=True):
-        return await self._setClimate(vin, 'true', waitForConfirmation=waitForConfirmation)
+        return await self._setClimate(
+            vin, "true", waitForConfirmation=waitForConfirmation
+        )
 
     async def climateOff(self, vin, waitForConfirmation=True):
-        return await self._setClimate(vin, 'false', waitForConfirmation=waitForConfirmation)
+        return await self._setClimate(
+            vin, "false", waitForConfirmation=waitForConfirmation
+        )
 
     async def directChargeOn(self, vin, model=None, waitForConfirmation=True):
-        return await self._setDirectCharge(vin, 'true', model, waitForConfirmation=waitForConfirmation)
+        return await self._setDirectCharge(
+            vin, "true", model, waitForConfirmation=waitForConfirmation
+        )
 
     async def directChargeOff(self, vin, model=None, waitForConfirmation=True):
-        return await self._setDirectCharge(vin, 'false', model, waitForConfirmation=waitForConfirmation)
+        return await self._setDirectCharge(
+            vin, "false", model, waitForConfirmation=waitForConfirmation
+        )
 
     async def honkAndFlash(self, vin, waitForConfirmation=True):
         return await self._setHonkAndFlash(vin, waitForConfirmation=waitForConfirmation)
@@ -232,58 +340,92 @@ class Client:
         return perms['userIsActive'] and perms['userRoleStatus'] == 'ENABLED'
 
     async def getVehicles(self):
-        vehicles = await self._connection.get("https://api.porsche.com/core/api/v3/se/sv_SE/vehicles")
+        vehicles = await self._connection.get(
+            f"https://api.porsche.com/core/api/v3/{self.locale_str}/vehicles"
+        )
         return vehicles
 
     async def getStoredOverview(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/se/sv_SE/vehicle-data/{vin}/stored")
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/vehicle-data/{vin}/stored"
+        )
         return data
 
     async def getCurrentOverview(self, vin):
-        progressResult = await self._connection.post(f"https://api.porsche.com/service-vehicle/se/sv_SE/vehicle-data/{vin}/current/request")
-        spinnerResult = await self._spinner(f"https://api.porsche.com/service-vehicle/se/sv_SE/vehicle-data/{vin}/current/request/{progressResult['requestId']}/status")
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/se/sv_SE/vehicle-data/{vin}/current/request/{progressResult['requestId']}")
+        progressResult = await self._connection.post(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/vehicle-data/{vin}/current/request"
+        )
+        spinnerResult = await self._spinner(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/vehicle-data/{vin}/current/request/{progressResult['requestId']}/status"
+        )
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/vehicle-data/{vin}/current/request/{progressResult['requestId']}"
+        )
         return data
 
     async def getMaintenance(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/predictive-maintenance/information/{vin}")
+        data = await self._connection.get(
+            f"https://api.porsche.com/predictive-maintenance/information/{vin}"
+        )
         return data
 
     async def getSummary(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/vehicle-summary/{vin}")
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/vehicle-summary/{vin}"
+        )
         return data
 
     async def getServices(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/service-access/{vin}/details")
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/service-access/{vin}/details"
+        )
         return data
 
     async def getCapabilities(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}")
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/vcs/capabilities/{vin}"
+        )
         return data
 
     async def getPosition(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/car-finder/{vin}/position")
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/car-finder/{vin}/position"
+        )
         return data
 
     async def getTheftAlerts(self, vin):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/theft-alerts/{vin}/history")
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/theft-alerts/{vin}/history"
+        )
         return data
 
-    async def getSpeedAlerts(self, vin, country='DE', language='de'):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/speed-alert/{vin}/alerts")
+    async def getSpeedAlerts(self, vin):
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/speed-alert/{vin}/alerts"
+        )
         return data
 
-    async def getTripLongTerm(self, vin, country='DE', language='de'):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/trips/{vin}/LONG_TERM/newest")
+    async def getTripLongTerm(self, vin):
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/trips/{vin}/LONG_TERM/newest"
+        )
         return data
 
-    async def getTripShortTerm(self, vin, country='DE', language='de'):
-        data = await self._connection.get(f"https://api.porsche.com/service-vehicle/{country.lower()}/{language.lower()}_{country.upper()}/trips/{vin}/SHORT_TERM")
+    async def getTripShortTerm(self, vin):
+        data = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/{self.locale_str}/trips/{vin}/SHORT_TERM"
+        )
         return data
 
-    async def getEmobility(self, vin, model=None, country='DE', language='de', timezone='Europe/Stockholm'):
+    async def getEmobility(
+        self,
+        vin,
+        model=None,
+    ):
         if model is None:
             data = await self.getCapabilities(vin)
-            model = data['carModel']
-        data = await self._connection.get(f"https://api.porsche.com/e-mobility/{country.lower()}/{language.lower()}_{country.upper()}/{model}/{vin}?timezone={timezone}")
+            model = data["carModel"]
+        data = await self._connection.get(
+            f"https://api.porsche.com/e-mobility/{self.locale_str/{model}/{vin}?timezone={self.timezone}"
+        )
         return data
