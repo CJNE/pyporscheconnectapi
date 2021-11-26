@@ -426,6 +426,6 @@ class Client:
             data = await self.getCapabilities(vin)
             model = data["carModel"]
         data = await self._connection.get(
-            f"https://api.porsche.com/e-mobility/{self.locale_str/{model}/{vin}?timezone={self.timezone}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}?timezone={self.timezone}"
         )
         return data
