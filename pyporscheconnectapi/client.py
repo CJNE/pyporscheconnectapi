@@ -345,11 +345,13 @@ class Client:
         return await self._setFlash(vin, waitForConfirmation=waitForConfirmation)
 
     async def getPermissions(self, vin):
-        return await self._connection.get(f"https://api.porsche.com/core/api/v2/se/sv_SE/vehicles/{vin}/permissions")
+        return await self._connection.get(
+            f"https://api.porsche.com/core/api/v2/se/sv_SE/vehicles/{vin}/permissions"
+        )
 
     async def isAllowed(self, vin):
         perms = await self.getPermissions(vin)
-        return perms['userIsActive'] and perms['userRoleStatus'] == 'ENABLED'
+        return perms["userIsActive"] and perms["userRoleStatus"] == "ENABLED"
 
     async def getVehicles(self):
         vehicles = await self._connection.get(
