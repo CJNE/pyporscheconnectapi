@@ -134,6 +134,29 @@ class Client:
         )
         return result
 
+    async def _updateChargingProfile(
+        self,
+        vin,
+        model=None,
+        profile=None,
+        waitForConfirmation=True,
+    ):
+        if model is None:
+            data = await self.getCapabilities(vin)
+            model = data["carModel"]
+
+        progressResult = await self._connection.put(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/profile",
+            json=profile,
+        )
+        if not waitForConfirmation:
+            return progressResult
+        result = await self._spinner(
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
+        )
+        return result
+
+
     async def _updateTimer(
         self,
         vin,
@@ -266,6 +289,30 @@ class Client:
         return await self._addTimer(
             vin, full_timer, model, waitForConfirmation=waitForConfirmation
         )
+
+    async def updateChargingProfile(
+        self,
+        vin,
+        model,
+        profileId: int,
+        minimumChargeLevel: int=None,
+        profileActive: bool=None,
+        waitForConfirmation=True,
+    ):
+        emobility = (await self.getEmobility(vin, model=model))['chargingProfiles']['profiles']
+        profile = {item['profileId']:item for item in emobility}[profileId]
+
+        if minimumChargeLevel is not None:
+            minimumChargeLevel = min(max(int(minimumChargeLevel), 25), 100)
+            profile['chargingOptions']['minimumChargeLevel'] = minimumChargeLevel
+
+        if profileActive is not None:
+            profile['profileActive'] = profileActive
+
+        return await self._updateChargingProfile(
+            vin, model, profile, waitForConfirmation=waitForConfirmation
+        )
+
 
     async def updateTimer(
         self,

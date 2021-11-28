@@ -101,6 +101,15 @@ async def main(args):
                     data = await client.directChargeOff(
                         vin, model=args.model, waitForConfirmation=not args.nowait
                     )
+                elif args.command == "chargingprofile":
+                    data = await client.updateChargingProfile(
+                        vin,
+                        model=args.model,
+                        profileId=args.profileid,
+                        minimumChargeLevel=args.minimumchargelevel,
+                        profileActive=args.profileactive,
+                        waitForConfirmation=not args.nowait
+                    )
                 elif args.command == "honk":
                     data = await client.honkAndFlash(
                         vin, waitForConfirmation=not args.nowait
@@ -126,6 +135,14 @@ async def main(args):
         json.dump(conn.tokens, json_file, ensure_ascii=False, indent=2)
 
 
+def add_arg_vin(parser):
+    group = parser.add_mutually_exclusive_group(required=True,)
+    group.add_argument("-v", "--vin", dest="vin", default=None)
+    group.add_argument("-a", "--all", dest="all", action="store_true")
+
+def add_arg_model(parser):
+    parser.add_argument("-m", "--model", dest="model", default=None)
+
 def cli():
     config = configparser.ConfigParser()
     config["porsche"] = {
@@ -137,33 +154,9 @@ def cli():
         "timezone": "Europe/Stockholm",
     }
     config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
-    parser = argparse.ArgumentParser(description="Porsche Connect CLI.")
-    parser.add_argument(
-        "command",
-        choices=[
-            "list",
-            "services",
-            "overview",
-            "maintenance",
-            "summary",
-            "capabilities",
-            "emobility",
-            "position",
-            "triplongterm",
-            "tripshortterm",
-            "speedalerts",
-            "theftalerts",
-            "tokens",
-            "lock",
-            "unlock",
-            "climate-on",
-            "climate-off",
-            "directcharge-on",
-            "directcharge-off",
-            "honk",
-            "flash",
-        ],
-    )
+    parser = argparse.ArgumentParser(description="Porsche Connect CLI")
+    subparsers = parser.add_subparsers(help='command help', dest='command')
+
     parser.add_argument("-d", "--debug", dest="debug", action="store_true")
     parser.add_argument(
         "-e", "--email", dest="email", default=config.get("porsche", "email")
@@ -177,10 +170,6 @@ def cli():
         dest="session_file",
         default=config.get("porsche", "session_file"),
     )
-    parser.add_argument("-v", "--vin", dest="vin", default=None)
-    parser.add_argument("-n", "--pin", dest="pin", default=None)
-    parser.add_argument("-m", "--model", dest="model", default=None)
-    parser.add_argument("-a", "--all", dest="all", action="store_true")
     parser.add_argument(
         "-c", "--country", dest="country", default=config.get("porsche", "country")
     )
@@ -191,6 +180,80 @@ def cli():
         "-z", "--timezone", dest="timezone", default=config.get("porsche", "timezone")
     )
     parser.add_argument("--nowait", dest="nowait", action="store_true")
+
+
+    parser_command_list = subparsers.add_parser('list')
+
+    parser_command_services = subparsers.add_parser('services')
+    add_arg_vin(parser_command_services)
+
+    parser_command_overview = subparsers.add_parser('overview')
+    add_arg_vin(parser_command_overview)
+
+    parser_command_maintenance = subparsers.add_parser('maintenance')
+    add_arg_vin(parser_command_maintenance)
+
+    parser_command_summary = subparsers.add_parser('summary')
+    add_arg_vin(parser_command_summary)
+
+    parser_command_capabilities = subparsers.add_parser('capabilities')
+    add_arg_vin(parser_command_capabilities)
+
+    parser_command_emobility = subparsers.add_parser('emobility')
+    add_arg_vin(parser_command_emobility)
+    add_arg_model(parser_command_emobility)
+
+    parser_command_position = subparsers.add_parser('position')
+    add_arg_vin(parser_command_position)
+
+    parser_command_triplongterm = subparsers.add_parser('triplongterm')
+    add_arg_vin(parser_command_triplongterm)
+
+    parser_command_tripshortterm = subparsers.add_parser('tripshortterm')
+    add_arg_vin(parser_command_tripshortterm)
+
+    parser_command_speedalerts = subparsers.add_parser('speedalerts')
+    add_arg_vin(parser_command_speedalerts)
+
+    parser_command_theftalerts = subparsers.add_parser('theftalerts')
+    add_arg_vin(parser_command_theftalerts)
+
+    parser_command_tokens = subparsers.add_parser('tokens')
+
+    parser_command_lock = subparsers.add_parser('lock')
+    add_arg_vin(parser_command_lock)
+
+    parser_command_unlock = subparsers.add_parser('unlock')
+    add_arg_vin(parser_command_unlock)
+    parser_command_unlock.add_argument("-n", "--pin", required=True, dest="pin", default=None)
+
+    parser_command_climateon = subparsers.add_parser('climate-on')
+    add_arg_vin(parser_command_climateon)
+
+    parser_command_climateoff = subparsers.add_parser('climate-off')
+    add_arg_vin(parser_command_climateoff)
+
+    parser_command_directchargeon = subparsers.add_parser('directcharge-on')
+    add_arg_vin(parser_command_directchargeon)
+    add_arg_model(parser_command_directchargeon)
+
+    parser_command_directchargeoff = subparsers.add_parser('directcharge-off')
+    add_arg_vin(parser_command_directchargeoff)
+    add_arg_model(parser_command_directchargeoff)
+
+    parser_command_honk = subparsers.add_parser('honk')
+    add_arg_vin(parser_command_honk)
+
+    parser_command_flash = subparsers.add_parser('flash')
+    add_arg_vin(parser_command_flash)
+
+    parser_command_chargingprofile = subparsers.add_parser('chargingprofile', help='Update parameters in configured charging profile')
+    add_arg_vin(parser_command_chargingprofile)
+    add_arg_model(parser_command_chargingprofile)
+    parser_command_chargingprofile.add_argument('--profileid', dest="profileid", type=int, required=True, help='Profile ID')
+    parser_command_chargingprofile.add_argument('--chargelevel', dest="minimumchargelevel", type=int, required=False, default=None, help='Minimin charge level')
+    parser_command_chargingprofile.add_argument('--profileactive', dest="profileactive", type=bool, required=False, default=None, help='Minimin charge level')
+
 
     args = parser.parse_args()
 
