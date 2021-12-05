@@ -108,6 +108,8 @@ async def main(args):
                         profileId=args.profileid,
                         minimumChargeLevel=args.minimumchargelevel,
                         profileActive=args.profileactive,
+                        long=args.long,
+                        lat=args.lat,
                         waitForConfirmation=not args.nowait
                     )
                 elif args.command == "honk":
@@ -251,8 +253,10 @@ def cli():
     add_arg_vin(parser_command_chargingprofile)
     add_arg_model(parser_command_chargingprofile)
     parser_command_chargingprofile.add_argument('--profileid', dest="profileid", type=int, required=True, help='Profile ID')
-    parser_command_chargingprofile.add_argument('--chargelevel', dest="minimumchargelevel", type=int, required=False, default=None, help='Minimin charge level')
-    parser_command_chargingprofile.add_argument('--profileactive', dest="profileactive", type=bool, required=False, default=None, help='Minimin charge level')
+    parser_command_chargingprofile.add_argument('--chargelevel', dest="minimumchargelevel", type=int, required=False, default=None, help='Minimun charge level')
+    parser_command_chargingprofile.add_argument('--profileactive', dest="profileactive", type=bool, required=False, default=None, help='Profile active status')
+    parser_command_chargingprofile.add_argument('--long', dest="long", type=float, required=False, default=None, help='Longitude (WGS84 decimal)')
+    parser_command_chargingprofile.add_argument('--lat', dest="lat", type=float, required=False, default=None, help='Latitude (WGS84 decimal)')
 
 
     args = parser.parse_args()
