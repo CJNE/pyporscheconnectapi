@@ -296,6 +296,8 @@ class Client:
         model,
         profileId: int,
         minimumChargeLevel: int=None,
+        long: float=None,
+        lat: float=None,
         profileActive: bool=None,
         waitForConfirmation=True,
     ):
@@ -308,6 +310,12 @@ class Client:
 
         if profileActive is not None:
             profile['profileActive'] = profileActive
+
+        if long is not None:
+            profile['position']['longitude'] = long
+
+        if lat is not None:
+            profile['position']['latitude'] = lat
 
         return await self._updateChargingProfile(
             vin, model, profile, waitForConfirmation=waitForConfirmation
