@@ -201,6 +201,9 @@ def cli():
     parser_command_capabilities = subparsers.add_parser('capabilities')
     add_arg_vin(parser_command_capabilities)
 
+    parser_command_permissions = subparsers.add_parser('permissions')
+    add_arg_vin(parser_command_permissions)
+
     parser_command_emobility = subparsers.add_parser('emobility')
     add_arg_vin(parser_command_emobility)
     add_arg_model(parser_command_emobility)
