@@ -31,7 +31,7 @@ class Client:
         return await self._connection.getAllTokens()
 
     async def _spinner(self, url):
-        while True:
+        for iteration in range(120):
             data = await self._connection.get(url)
             if "status" in data and data["status"] != "IN_PROGRESS":
                 break
@@ -155,7 +155,6 @@ class Client:
             f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
         )
         return result
-
 
     async def _updateTimer(
         self,
@@ -295,32 +294,33 @@ class Client:
         vin,
         model,
         profileId: int,
-        minimumChargeLevel: int=None,
-        long: float=None,
-        lat: float=None,
-        profileActive: bool=None,
+        minimumChargeLevel: int = None,
+        long: float = None,
+        lat: float = None,
+        profileActive: bool = None,
         waitForConfirmation=True,
     ):
-        emobility = (await self.getEmobility(vin, model=model))['chargingProfiles']['profiles']
-        profile = {item['profileId']:item for item in emobility}[profileId]
+        emobility = (await self.getEmobility(vin, model=model))["chargingProfiles"][
+            "profiles"
+        ]
+        profile = {item["profileId"]: item for item in emobility}[profileId]
 
         if minimumChargeLevel is not None:
             minimumChargeLevel = min(max(int(minimumChargeLevel), 25), 100)
-            profile['chargingOptions']['minimumChargeLevel'] = minimumChargeLevel
+            profile["chargingOptions"]["minimumChargeLevel"] = minimumChargeLevel
 
         if profileActive is not None:
-            profile['profileActive'] = profileActive
+            profile["profileActive"] = profileActive
 
         if long is not None:
-            profile['position']['longitude'] = long
+            profile["position"]["longitude"] = long
 
         if lat is not None:
-            profile['position']['latitude'] = lat
+            profile["position"]["latitude"] = lat
 
         return await self._updateChargingProfile(
             vin, model, profile, waitForConfirmation=waitForConfirmation
         )
-
 
     async def updateTimer(
         self,
@@ -406,7 +406,27 @@ class Client:
 
     async def isAllowed(self, vin):
         perms = await self.getPermissions(vin)
-        return perms["userIsActive"] and perms["userRoleStatus"] == "ENABLED"
+        allowed = False
+        reason = ""
+        if perms["userIsActive"] and perms["userRoleStatus"] == "ENABLED":
+            service_status = await self._connection.get(
+                f"https://api.porsche.com/core/api/v3/de/de_DE/services?{vin}"
+            )
+            print(service_status)
+            reason = service_status.get(
+                "STATUS", service_status.get("disabledReason", "")
+            )
+            mydata = await self._connection.get(
+                f"https://api.porsche.com/profiles/mydata?country={self.country}"
+            )
+            for vehicle in mydata["vehicles"]:
+                print(vehicle)
+                if vehicle["vin"] == vin:
+                    if vehicle["confirmed"] and vehicle["pcc"]:
+                        allowed = True
+                        break
+        return_value = {"allowed": allowed, "reason": reason}
+        return return_value
 
     async def getVehicles(self):
         vehicles = await self._connection.get(

@@ -70,7 +70,7 @@ async def main(args):
                 elif args.command == "capabilities":
                     data = await client.getCapabilities(vin)
                 elif args.command == "permissions":
-                    data = await client.getPermissions(vin)
+                    data = await client.isAllowed(vin)
                 elif args.command == "services":
                     data = await client.getServices(vin)
                 elif args.command == "position":
