@@ -1,5 +1,6 @@
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import WrongCredentials
+from hashlib import sha512
 
 import asyncio
 import datetime
@@ -41,9 +42,17 @@ class Client:
         return data
 
     async def _lockUnlock(self, vin, pin, action, waitForConfirmation=True):
+        challengeResult = await self._connection.get(
+            f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}"
+        )
+
+        challenge = challengeResult.get("challenge")
+        token = challengeResult.get("securityToken")
+        pinhash = sha512(bytes.fromhex(pin+challenge)).hexdigest().upper()
+
         progressResult = await self._connection.post(
             f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}",
-            json={"pin": pin},
+            json={"challenge": challenge, "securityPinHash": pinhash, "securityToken": token},
         )
         error = progressResult.get("pcckErrorKey", None)
         if error == "INCORRECT":
@@ -370,7 +379,7 @@ class Client:
 
     async def unlock(self, vin, pin, waitForConfirmation=True):
         return await self._lockUnlock(
-            vin, pin, "unlock", waitForConfirmation=waitForConfirmation
+            vin, pin, "security-pin/unlock", waitForConfirmation=waitForConfirmation
         )
 
     async def climateOn(self, vin, waitForConfirmation=True):
