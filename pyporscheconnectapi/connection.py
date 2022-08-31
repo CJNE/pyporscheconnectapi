@@ -230,6 +230,7 @@ class Connection:
             self.tokens[application['client_id']] = token
         head = {
             "Authorization": f"Bearer {token['access_token']}",
+            "origin": "https://my.porsche.com",
             "apikey": token['apikey'],
             "x-vrs-url-country": self.country.lower(),
             "x-vrs-url-language": f"{self.language.lower()}_{self.country.upper()}"
