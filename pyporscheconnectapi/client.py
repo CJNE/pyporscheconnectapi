@@ -42,18 +42,23 @@ class Client:
         return data
 
     async def _lockUnlock(self, vin, pin, action, waitForConfirmation=True):
-        challengeResult = await self._connection.get(
-            f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}"
-        )
+        if pin is not None:
+            challengeResult = await self._connection.get(
+                f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}"
+            )
 
-        challenge = challengeResult.get("challenge")
-        token = challengeResult.get("securityToken")
-        pinhash = sha512(bytes.fromhex(pin+challenge)).hexdigest().upper()
+            challenge = challengeResult.get("challenge")
+            token = challengeResult.get("securityToken")
+            pinhash = sha512(bytes.fromhex(pin+challenge)).hexdigest().upper()
+            payload = {"challenge": challenge, "securityPinHash": pinhash, "securityToken": token}
+        else:
+            payload = {}
 
         progressResult = await self._connection.post(
             f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{action}",
-            json={"challenge": challenge, "securityPinHash": pinhash, "securityToken": token},
+            json=payload,
         )
+
         error = progressResult.get("pcckErrorKey", None)
         if error == "INCORRECT":
             raise WrongCredentials("PIN code was incorrect")
@@ -374,7 +379,7 @@ class Client:
 
     async def lock(self, vin, waitForConfirmation=True):
         return await self._lockUnlock(
-            vin, None, "lock", waitForConfirmation=waitForConfirmation
+            vin, None, "quick-lock", waitForConfirmation=waitForConfirmation
         )
 
     async def unlock(self, vin, pin, waitForConfirmation=True):
