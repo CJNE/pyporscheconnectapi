@@ -482,6 +482,14 @@ class Client:
         data = await self._connection.get(
             f"https://api.porsche.com/service-vehicle/service-access/{vin}/details"
         )
+        # Find out if we're in privacy mode
+        is_privacy = False
+        for service in data["serviceAccessDetails"]:
+            if service.get('disabledReason', False) == 'PRIVACY_MODE':
+                is_privacy = True
+                break
+
+        data["privacyMode"] = is_privacy
         return data
 
     async def getCapabilities(self, vin):
