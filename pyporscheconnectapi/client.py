@@ -424,7 +424,7 @@ class Client:
         reason = ""
         if perms["userIsActive"] and perms["userRoleStatus"] == "ENABLED":
             service_status = await self._connection.get(
-                f"https://api.porsche.com/core/api/v3/de/de_DE/services?{vin}"
+                f"https://api.porsche.com/core/api/v4/de/de_DE/services?{vin}"
             )
             print(service_status)
             reason = service_status.get(
