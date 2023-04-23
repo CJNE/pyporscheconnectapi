@@ -420,6 +420,7 @@ class Client:
 
     async def isAllowed(self, vin):
         perms = await self.getPermissions(vin)
+        print(perms)
         allowed = False
         reason = ""
         if perms["userIsActive"] and perms["userRoleStatus"] == "ENABLED":
