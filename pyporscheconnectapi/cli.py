@@ -18,6 +18,7 @@ except ImportError:
 logging.basicConfig()
 logging.root.setLevel(logging.WARNING)
 
+_LOGGER = logging.getLogger(__name__)
 
 async def main(args):
     try:
@@ -30,6 +31,7 @@ async def main(args):
 
     if args.debug:
         logging.root.setLevel(logging.DEBUG)
+
     email = args.email or input("Please enter Porsche Connect email: ")
     password = args.password or getpass()
     conn = Connection(

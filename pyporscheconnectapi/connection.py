@@ -15,6 +15,7 @@ import os
 import re
 import urllib.parse
 from typing import Dict, Text
+from bs4 import BeautifulSoup
 
 import aiohttp
 
@@ -42,6 +43,15 @@ trace_config = aiohttp.TraceConfig()
 trace_config.on_request_start.append(on_request_start)
 trace_config.on_request_end.append(on_request_end)
 
+AUTHORIZATION_SERVER="identity.porsche.com"
+REDIRECT_URI="https://my.porsche.com/"
+AUDIENCE="https://api.porsche.com"
+TENANT="porsche-production"
+COUNTRY="de"
+LANGUAGE="de_DE"
+CLIENT_ID="UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
+
+
 
 class Connection:
     """Connection to Porsche Connect API."""
@@ -68,9 +78,15 @@ class Connection:
         )
         self.porscheApplications = {
             "api": {
-                "client_id": "4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA",
-                "redirect_uri": "https://my.porsche.com/core/de/de_DE",
+                "client_id": CLIENT_ID,
+                "redirect_uri": REDIRECT_URI,
                 "prefix": "https://api.porsche.com/core/api/",
+            },
+            "profile": {
+                "client_id": CLIENT_ID,
+                "api_key": "QPw3VOLAMfI7r0nmRY8ELq4RzZpZeXEE",
+                "redirect_uri": REDIRECT_URI,
+                "prefix": "https://api.porsche.com/profiles",
             },
             "auth": {
                 "client_id": "4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA",
@@ -92,37 +108,89 @@ class Connection:
         self._isLoggedIn = False
         self.country = country
         self.language = language
+        self.auth_state = {}
 
         if self.websession is None:
             self.websession = aiohttp.ClientSession(trace_configs=[trace_config])
         _LOGGER.debug("New connection prepared")
 
     async def _login(self):
-        _LOGGER.debug("Start authentication, get initial state from login page....")
-        login_data = {
-            "sec": "",
-            "resume": "",
-            "thirdPartyId": "",
-            "state": "",
-            "username": self.email,
-            "password": self.password,
-            "keeploggedin": "false",
-        }
+        _LOGGER.debug("Start authentication, get initial state from auth server")
+        # Do not follow redirect
+        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales=de-DE&audience={AUDIENCE}&scope=openid"
+        async with self.websession.get(start_login_url, allow_redirects=False) as resp:
+            location = resp.headers["Location"]
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
+            _LOGGER.debug(params)
+            have_code = params.get('code', None)
+            if have_code is not None:
+                _LOGGER("We already have a code in session, skip login")
+                self.auth_state['code'] = have_code
+                return
+            self.auth_state["state"] = params["state"][0]
+            self.auth_state["client"] = params["client"][0]
+        _LOGGER.debug(self.auth_state)
 
+
+        # Post auth data
         _LOGGER.debug("POST authentication details....")
-        async with self.websession.post(
-            self.porscheLoginAuth, data=login_data, max_redirects=30
-        ) as resp:
+        auth_body = {
+                "sec": "high",
+                "username": self.email,
+                "password": self.password,
+                "code_challenge_method": "S256",
+                "redirect_uri": REDIRECT_URI,
+                "ui_locales": "de-DE",
+                "audience": AUDIENCE,
+                "client_id": CLIENT_ID,
+                "connection": "Username-Password-Authentication",
+                "state": self.auth_state["state"],
+                "tenant": TENANT,
+                "response_type": "code"
+                }
+        auth_url = f"https://{AUTHORIZATION_SERVER}/usernamepassword/login"
+        verify_body = {} 
+        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
             # In case of wrong credentials there is a state param in the redirect url
-            last_location = resp.history[len(resp.history) - 1].headers["Location"]
-            query = urllib.parse.urlparse(last_location).query
-            redirect_params = urllib.parse.parse_qs(query)
-            if (
-                "state" in redirect_params
-                and redirect_params["state"][0] == "WRONG_CREDENTIALS"
-            ):
-                raise WrongCredentials("Wrong email or password")
 
+            if resp.status == 401:
+                message = await resp.json()
+                raise WrongCredentials(message['message'])
+
+            html_body = await resp.text()
+
+            _LOGGER.debug(resp.status)
+            _LOGGER.debug(html_body)
+
+            soup = BeautifulSoup(html_body,features="html.parser")
+            hidden_tags = soup.find_all("input", type="hidden")
+            for tag in hidden_tags:
+                verify_body[tag.attrs['name']] = tag.attrs['value']
+            _LOGGER.debug(verify_body)
+
+        # Follow callback
+        _LOGGER.debug("POST authentication verification...")
+        auth_url = f"https://{AUTHORIZATION_SERVER}/login/callback"
+        resume_url = ""
+        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=verify_body, allow_redirects=False) as resp:
+            resume_url = resp.headers['Location']
+            _LOGGER.debug(f"Resume at {resume_url}")
+
+        _LOGGER.debug("Sleeping 2.5s...")
+        time.sleep(2.5)
+
+        # Resume auth
+        auth_url = f"https://{{AUTHORIZATION_SERVER}}{resume_url}"
+        async with self.websession.get(start_login_url, allow_redirects=False) as resp:
+            location = resp.headers["Location"]
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
+            _LOGGER.debug(params)
+            self.auth_state["code"] = params["code"][0]
+            _LOGGER.debug(f"Got code {self.auth_state['code']}")
+
+        _LOGGER.debug("Sleeping 2.5s...")
+        time.sleep(2.5)
+        
         self._isLoggedIn = True
         return True
 
@@ -141,58 +209,31 @@ class Connection:
         if not self._isLoggedIn or wasExpired:
             await self._login()
 
-        _LOGGER.debug(
-            "Requesting access token for client id %s", application["client_id"]
-        )
 
-        code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode("utf-8")
-        code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
-
-        code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
-        code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
-        code_challenge = code_challenge.replace("=", "")
-
-        auth_data = {
-            "scope": "openid",
-            "response_type": "code",
-            "access_type": "offline",
-            "prompt": "none",
-            "client_id": application["client_id"],
-            "redirect_uri": application["redirect_uri"],
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-        }
-
-        async with self.websession.get(self.porscheAPIAuth, params=auth_data) as resp:
-            last_location = resp.history[len(resp.history) - 1].headers["Location"]
-            query = urllib.parse.urlparse(last_location).query
-            redirect_params = urllib.parse.parse_qs(query)
-            auth_code = redirect_params["code"][0]
-            _LOGGER.debug("Code %s", auth_code)
-
-        auth_token_data = {
-            "grant_type": "authorization_code",
-            "client_id": application["client_id"],
-            "redirect_uri": application["redirect_uri"],
-            "code": auth_code,
-            "prompt": "none",
-            "code_verifier": code_verifier,
-        }
-        _LOGGER.debug("Data %s", auth_token_data)
-
+        _LOGGER.debug("POST to acces token endpoint...")
+        auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
+        auth_body = {
+                "client_id": CLIENT_ID,
+                "grant_type": "authorization_code",
+                "code": self.auth_state['code'],
+                "redirect_uri": REDIRECT_URI
+                }
+        _LOGGER.debug(auth_body)
+        _LOGGER.debug( "Requesting access token for client id %s", application["client_id"])
         now = calendar.timegm(datetime.datetime.now().timetuple())
-        async with self.websession.post(
-            self.porscheAPIToken, data=auth_token_data
-        ) as resp:
+        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
+            _LOGGER.debug(f"Response status {resp.status}")
             token_data = await resp.json()
-            jwt = self.jwt_payload_decode(token_data["id_token"])
+            _LOGGER.debug(token_data)
+            jwt = self.jwt_payload_decode(token_data["access_token"])
             token = token_data
-            token["expiration"] = now + token_data["expires_in"]
+            token["expiration"] = now + token_data.get("exp", 3600)
             token["decoded_token"] = jwt
-            token["apikey"] = jwt["aud"]
+            token["apikey"] = jwt["azp"]
             _LOGGER.debug("Token: %s", token)
             self.isTokenRefreshed = True
             return token
+
 
     async def get(self, url, params=None):
         try:
@@ -258,7 +299,7 @@ class Connection:
         head = {
             "Authorization": f"Bearer {token['access_token']}",
             "origin": "https://my.porsche.com",
-            "apikey": token["apikey"],
+            "apikey": application.get("api_key", token["apikey"]),
             "x-vrs-url-country": self.country.lower(),
             "x-vrs-url-language": f"{self.language.lower()}_{self.country.upper()}",
         }

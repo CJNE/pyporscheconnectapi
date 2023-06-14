@@ -434,6 +434,7 @@ class Client:
             mydata = await self._connection.get(
                 f"https://api.porsche.com/profiles/mydata?country={self.country}"
             )
+            _LOGGER.debug(mydata)
             for vehicle in mydata["vehicles"]:
                 print(vehicle)
                 if vehicle["vin"] == vin:
