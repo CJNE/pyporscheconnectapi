@@ -94,7 +94,8 @@ class Connection:
                 "prefix": "https://login.porsche.com",
             },
             "carcontrol": {
-                "client_id": "Ux8WmyzsOAGGmvmWnW7GLEjIILHEztAs",
+                #"client_id": "Ux8WmyzsOAGGmvmWnW7GLEjIILHEztAs",
+                "client_id": CLIENT_ID,
                 "redirect_uri": "https://my.porsche.com/myservices/auth/auth.html",
                 "prefix": "https://api.porsche.com/",
             },
