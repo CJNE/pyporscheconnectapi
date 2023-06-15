@@ -66,16 +66,6 @@ class Connection:
         tokens=None,
     ) -> None:
         """Initialize connection object."""
-        self.porscheCookiedomain: Text = "https://login.porsche.com"
-        self.porscheLogin: Text = "https://login.porsche.com/auth/de/de_DE"
-        self.porscheLoginAuth: Text = (
-            "https://login.porsche.com/auth/api/v1/de/de_DE/public/login"
-        )
-        self.porscheAPIAuth: Text = "https://login.porsche.com/as/authorization.oauth2"
-        self.porscheAPIToken: Text = "https://login.porsche.com/as/token.oauth2"
-        self.porscheAPI: Text = (
-            "https://connect-portal.porsche.com/core/api/v3/de/de_DE"
-        )
         self.porscheApplications = {
             "api": {
                 "client_id": CLIENT_ID,
@@ -88,11 +78,11 @@ class Connection:
                 "redirect_uri": REDIRECT_URI,
                 "prefix": "https://api.porsche.com/profiles",
             },
-            "auth": {
-                "client_id": "4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA",
-                "redirect_uri": "https://my.porsche.com/core/de/de_DE/",
-                "prefix": "https://login.porsche.com",
-            },
+            # "auth": {
+            #     "client_id": "4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA",
+            #     "redirect_uri": "https://my.porsche.com/core/de/de_DE/",
+            #     "prefix": "https://login.porsche.com",
+            # },
             "carcontrol": {
                 #"client_id": "Ux8WmyzsOAGGmvmWnW7GLEjIILHEztAs",
                 "client_id": CLIENT_ID,
@@ -178,7 +168,7 @@ class Connection:
             _LOGGER.debug(f"Resume at {resume_url}")
 
         _LOGGER.debug("Sleeping 2.5s...")
-        time.sleep(2.5)
+        await asyncio.sleep(2.5)
 
         # Resume auth
         auth_url = f"https://{{AUTHORIZATION_SERVER}}{resume_url}"
@@ -190,7 +180,7 @@ class Connection:
             _LOGGER.debug(f"Got code {self.auth_state['code']}")
 
         _LOGGER.debug("Sleeping 2.5s...")
-        time.sleep(2.5)
+        await asyncio.sleep(2.5)
         
         self._isLoggedIn = True
         return True
@@ -199,6 +189,7 @@ class Connection:
         now = calendar.timegm(datetime.datetime.now().timetuple())
         for applicationKey in self.porscheApplications:
             application = self.porscheApplications[applicationKey]
+            _LOGGER.debug(f"Get token for app {applicationKey}")
             token = self.tokens.get(application["client_id"], None)
             if token is None or token["expiration"] < now:
                 token = await self._requestToken(application)
@@ -214,7 +205,7 @@ class Connection:
         _LOGGER.debug("POST to acces token endpoint...")
         auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
         auth_body = {
-                "client_id": CLIENT_ID,
+                "client_id": application['client_id'],
                 "grant_type": "authorization_code",
                 "code": self.auth_state['code'],
                 "redirect_uri": REDIRECT_URI
