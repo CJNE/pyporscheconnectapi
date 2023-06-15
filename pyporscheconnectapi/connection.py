@@ -155,7 +155,7 @@ class Connection:
 
             if resp.status == 401:
                 message = await resp.json()
-                raise WrongCredentials(message['message'])
+                raise WrongCredentials(message['description'])
 
             html_body = await resp.text()
 
