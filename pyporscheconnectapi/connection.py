@@ -115,7 +115,7 @@ class Connection:
             _LOGGER.debug(params)
             have_code = params.get('code', None)
             if have_code is not None:
-                _LOGGER("We already have a code in session, skip login")
+                _LOGGER.debug("We already have a code in session, skip login")
                 self.auth_state['code'] = have_code
                 return
             self.auth_state["state"] = params["state"][0]
