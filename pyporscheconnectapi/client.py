@@ -98,13 +98,13 @@ class Client:
             data = await self.getCapabilities(vin)
             model = data["carModel"]
         progressResult = await self._connection.post(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/{action}",
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/{action}?hasDX1=false",
             json={},
         )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/status/{progressResult['requestId']}?toggledOn={action}"
         )
         return result
 
