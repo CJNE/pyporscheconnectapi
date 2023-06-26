@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="pyporscheconnectapi",
-    version="0.1.3",
+    version="0.1.4",
     author="Johan Isaksson",
     author_email="johan@generatorhallen.se",
     description="Python library and CLI for communicating with Porsche Connect API.",
