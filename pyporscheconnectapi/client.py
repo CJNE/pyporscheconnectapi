@@ -144,7 +144,7 @@ class Client:
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}?hasDX1=false"
         )
         return result
 
@@ -166,7 +166,7 @@ class Client:
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}?hasDX1=false"
         )
         return result
 
@@ -190,7 +190,7 @@ class Client:
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}?hasDX1=false"
         )
         return result
 
@@ -207,7 +207,7 @@ class Client:
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}"
+            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/action-status/{progressResult['actionId']}?hasDX1=false"
         )
         return result
 
