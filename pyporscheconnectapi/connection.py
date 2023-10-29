@@ -119,31 +119,46 @@ class Connection:
                 self.auth_state['code'] = have_code
                 return
             self.auth_state["state"] = params["state"][0]
-            self.auth_state["client"] = params["client"][0]
+            # self.auth_state["client"] = params["client"][0]
         _LOGGER.debug(self.auth_state)
 
 
-        # Post auth data
-        _LOGGER.debug("POST authentication details....")
+        # Post username
+        _LOGGER.debug("POST username....")
         auth_body = {
-                "sec": "high",
-                "username": self.email,
-                "password": self.password,
-                "code_challenge_method": "S256",
-                "redirect_uri": REDIRECT_URI,
-                "ui_locales": "de-DE",
-                "audience": AUDIENCE,
-                "client_id": CLIENT_ID,
-                "connection": "Username-Password-Authentication",
-                "state": self.auth_state["state"],
-                "tenant": TENANT,
-                "response_type": "code"
-                }
-        auth_url = f"https://{AUTHORIZATION_SERVER}/usernamepassword/login"
-        verify_body = {} 
+            "state": self.auth_state["state"],
+            "username": self.email,
+            "js-available": True,
+            "webauthn-available": False,
+            "is-brave": False,
+            "webauthn-platform-available": False,
+            "action": "default"
+        }
+        auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier?state={self.auth_state['state']}"
+        verify_body = {}
         async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
             # In case of wrong credentials there is a state param in the redirect url
+            if resp.status == 401:
+                message = await resp.json()
+                raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
 
+            html_body = await resp.text()
+
+            _LOGGER.debug(resp)
+            _LOGGER.debug(html_body)
+
+        # Post password
+        _LOGGER.debug("POST password....")
+        auth_body = {
+            "state": self.auth_state["state"],
+            "username": self.email,
+            "password": self.password,
+            "action": "default"
+        }
+        auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/password?state={self.auth_state['state']}"
+        verify_body = {}
+        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, allow_redirects=False) as resp:
+            # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
                 raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
@@ -153,17 +168,6 @@ class Connection:
             _LOGGER.debug(resp.status)
             _LOGGER.debug(html_body)
 
-            soup = BeautifulSoup(html_body,features="html.parser")
-            hidden_tags = soup.find_all("input", type="hidden")
-            for tag in hidden_tags:
-                verify_body[tag.attrs['name']] = tag.attrs['value']
-            _LOGGER.debug(verify_body)
-
-        # Follow callback
-        _LOGGER.debug("POST authentication verification...")
-        auth_url = f"https://{AUTHORIZATION_SERVER}/login/callback"
-        resume_url = ""
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=verify_body, allow_redirects=False) as resp:
             resume_url = resp.headers['Location']
             _LOGGER.debug(f"Resume at {resume_url}")
 
