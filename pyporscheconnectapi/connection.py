@@ -50,8 +50,7 @@ TENANT="porsche-production"
 COUNTRY="de"
 LANGUAGE="de_DE"
 CLIENT_ID="UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
-
-
+SCOPE="scope=openid+profile+email+pid%3Auser_profile.name%3Aread+pid%3Auser_profile.vehicles%3Aread+pid%3Auser_profile.dealers%3Aread+pid%3Auser_profile.emails%3Aread+pid%3Auser_profile.phones%3Aread+pid%3Auser_profile.addresses%3Aread+pid%3Auser_profile.birthdate%3Aread+pid%3Auser_profile.locale%3Aread+pid%3Auser_profile.vehicles%3Aregister+pid%3Auser_profile.porscheid%3Aread"
 
 class Connection:
     """Connection to Porsche Connect API."""
@@ -108,7 +107,7 @@ class Connection:
     async def _login(self):
         _LOGGER.debug("Start authentication, get initial state from auth server")
         # Do not follow redirect
-        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales=de-DE&audience={AUDIENCE}&scope=openid"
+        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales=de-DE&audience={AUDIENCE}&scope={SCOPE}"
         async with self.websession.get(start_login_url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
