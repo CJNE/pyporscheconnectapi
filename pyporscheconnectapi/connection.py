@@ -45,6 +45,7 @@ AUTHORIZATION_SERVER="identity.porsche.com"
 REDIRECT_URI="https://my.porsche.com/"
 AUDIENCE="https://api.porsche.com"
 CLIENT_ID="UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
+SCOPE="openid"
 
 
 
@@ -86,7 +87,7 @@ class Connection:
     async def _login(self):
         _LOGGER.debug("Start authentication, get initial state from auth server")
         # Do not follow redirect
-        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales=de-DE&audience={AUDIENCE}&scope=openid"
+        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales={self.language}-{self.country}&audience={AUDIENCE}&scope={SCOPE}"
         async with self.websession.get(start_login_url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
