@@ -54,4 +54,3 @@ class CaptchaRequired(PorscheException):
     """Class of exception when captcha verification is required."""
 
     pass
-

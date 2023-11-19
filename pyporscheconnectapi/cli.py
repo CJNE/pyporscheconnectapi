@@ -20,6 +20,7 @@ logging.root.setLevel(logging.WARNING)
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def main(args):
     try:
         with open(args.session_file) as json_file:
@@ -112,7 +113,7 @@ async def main(args):
                         profileActive=args.profileactive,
                         long=args.long,
                         lat=args.lat,
-                        waitForConfirmation=not args.nowait
+                        waitForConfirmation=not args.nowait,
                     )
                 elif args.command == "honk":
                     data = await client.honkAndFlash(
@@ -140,12 +141,16 @@ async def main(args):
 
 
 def add_arg_vin(parser):
-    group = parser.add_mutually_exclusive_group(required=True,)
+    group = parser.add_mutually_exclusive_group(
+        required=True,
+    )
     group.add_argument("-v", "--vin", dest="vin", default=None)
     group.add_argument("-a", "--all", dest="all", action="store_true")
 
+
 def add_arg_model(parser):
     parser.add_argument("-m", "--model", dest="model", default=None)
+
 
 def cli():
     config = configparser.ConfigParser()
@@ -159,7 +164,7 @@ def cli():
     }
     config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
     parser = argparse.ArgumentParser(description="Porsche Connect CLI")
-    subparsers = parser.add_subparsers(help='command help', dest='command')
+    subparsers = parser.add_subparsers(help="command help", dest="command")
 
     parser.add_argument("-d", "--debug", dest="debug", action="store_true")
     parser.add_argument(
@@ -185,84 +190,116 @@ def cli():
     )
     parser.add_argument("--nowait", dest="nowait", action="store_true")
 
+    parser_command_list = subparsers.add_parser("list")
 
-    parser_command_list = subparsers.add_parser('list')
-
-    parser_command_services = subparsers.add_parser('services')
+    parser_command_services = subparsers.add_parser("services")
     add_arg_vin(parser_command_services)
 
-    parser_command_overview = subparsers.add_parser('overview')
+    parser_command_overview = subparsers.add_parser("overview")
     add_arg_vin(parser_command_overview)
 
-    parser_command_maintenance = subparsers.add_parser('maintenance')
+    parser_command_maintenance = subparsers.add_parser("maintenance")
     add_arg_vin(parser_command_maintenance)
 
-    parser_command_summary = subparsers.add_parser('summary')
+    parser_command_summary = subparsers.add_parser("summary")
     add_arg_vin(parser_command_summary)
 
-    parser_command_capabilities = subparsers.add_parser('capabilities')
+    parser_command_capabilities = subparsers.add_parser("capabilities")
     add_arg_vin(parser_command_capabilities)
 
-    parser_command_permissions = subparsers.add_parser('permissions')
+    parser_command_permissions = subparsers.add_parser("permissions")
     add_arg_vin(parser_command_permissions)
 
-    parser_command_emobility = subparsers.add_parser('emobility')
+    parser_command_emobility = subparsers.add_parser("emobility")
     add_arg_vin(parser_command_emobility)
     add_arg_model(parser_command_emobility)
 
-    parser_command_position = subparsers.add_parser('position')
+    parser_command_position = subparsers.add_parser("position")
     add_arg_vin(parser_command_position)
 
-    parser_command_triplongterm = subparsers.add_parser('triplongterm')
+    parser_command_triplongterm = subparsers.add_parser("triplongterm")
     add_arg_vin(parser_command_triplongterm)
 
-    parser_command_tripshortterm = subparsers.add_parser('tripshortterm')
+    parser_command_tripshortterm = subparsers.add_parser("tripshortterm")
     add_arg_vin(parser_command_tripshortterm)
 
-    parser_command_speedalerts = subparsers.add_parser('speedalerts')
+    parser_command_speedalerts = subparsers.add_parser("speedalerts")
     add_arg_vin(parser_command_speedalerts)
 
-    parser_command_theftalerts = subparsers.add_parser('theftalerts')
+    parser_command_theftalerts = subparsers.add_parser("theftalerts")
     add_arg_vin(parser_command_theftalerts)
 
-    parser_command_tokens = subparsers.add_parser('tokens')
+    parser_command_tokens = subparsers.add_parser("tokens")
 
-    parser_command_lock = subparsers.add_parser('lock')
+    parser_command_lock = subparsers.add_parser("lock")
     add_arg_vin(parser_command_lock)
 
-    parser_command_unlock = subparsers.add_parser('unlock')
+    parser_command_unlock = subparsers.add_parser("unlock")
     add_arg_vin(parser_command_unlock)
-    parser_command_unlock.add_argument("-n", "--pin", required=True, dest="pin", default=None)
+    parser_command_unlock.add_argument(
+        "-n", "--pin", required=True, dest="pin", default=None
+    )
 
-    parser_command_climateon = subparsers.add_parser('climate-on')
+    parser_command_climateon = subparsers.add_parser("climate-on")
     add_arg_vin(parser_command_climateon)
 
-    parser_command_climateoff = subparsers.add_parser('climate-off')
+    parser_command_climateoff = subparsers.add_parser("climate-off")
     add_arg_vin(parser_command_climateoff)
 
-    parser_command_directchargeon = subparsers.add_parser('directcharge-on')
+    parser_command_directchargeon = subparsers.add_parser("directcharge-on")
     add_arg_vin(parser_command_directchargeon)
     add_arg_model(parser_command_directchargeon)
 
-    parser_command_directchargeoff = subparsers.add_parser('directcharge-off')
+    parser_command_directchargeoff = subparsers.add_parser("directcharge-off")
     add_arg_vin(parser_command_directchargeoff)
     add_arg_model(parser_command_directchargeoff)
 
-    parser_command_honk = subparsers.add_parser('honk')
+    parser_command_honk = subparsers.add_parser("honk")
     add_arg_vin(parser_command_honk)
 
-    parser_command_flash = subparsers.add_parser('flash')
+    parser_command_flash = subparsers.add_parser("flash")
     add_arg_vin(parser_command_flash)
 
-    parser_command_chargingprofile = subparsers.add_parser('chargingprofile', help='Update parameters in configured charging profile')
+    parser_command_chargingprofile = subparsers.add_parser(
+        "chargingprofile", help="Update parameters in configured charging profile"
+    )
     add_arg_vin(parser_command_chargingprofile)
     add_arg_model(parser_command_chargingprofile)
-    parser_command_chargingprofile.add_argument('--profileid', dest="profileid", type=int, required=True, help='Profile ID')
-    parser_command_chargingprofile.add_argument('--chargelevel', dest="minimumchargelevel", type=int, required=False, default=None, help='Minimun charge level')
-    parser_command_chargingprofile.add_argument('--profileactive', dest="profileactive", type=bool, required=False, default=None, help='Profile active status')
-    parser_command_chargingprofile.add_argument('--long', dest="long", type=float, required=False, default=None, help='Longitude (WGS84 decimal)')
-    parser_command_chargingprofile.add_argument('--lat', dest="lat", type=float, required=False, default=None, help='Latitude (WGS84 decimal)')
-
+    parser_command_chargingprofile.add_argument(
+        "--profileid", dest="profileid", type=int, required=True, help="Profile ID"
+    )
+    parser_command_chargingprofile.add_argument(
+        "--chargelevel",
+        dest="minimumchargelevel",
+        type=int,
+        required=False,
+        default=None,
+        help="Minimun charge level",
+    )
+    parser_command_chargingprofile.add_argument(
+        "--profileactive",
+        dest="profileactive",
+        type=bool,
+        required=False,
+        default=None,
+        help="Profile active status",
+    )
+    parser_command_chargingprofile.add_argument(
+        "--long",
+        dest="long",
+        type=float,
+        required=False,
+        default=None,
+        help="Longitude (WGS84 decimal)",
+    )
+    parser_command_chargingprofile.add_argument(
+        "--lat",
+        dest="lat",
+        type=float,
+        required=False,
+        default=None,
+        help="Latitude (WGS84 decimal)",
+    )
 
     args = parser.parse_args()
 

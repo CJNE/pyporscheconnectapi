@@ -49,8 +49,12 @@ class Client:
 
             challenge = challengeResult.get("challenge")
             token = challengeResult.get("securityToken")
-            pinhash = sha512(bytes.fromhex(pin+challenge)).hexdigest().upper()
-            payload = {"challenge": challenge, "securityPinHash": pinhash, "securityToken": token}
+            pinhash = sha512(bytes.fromhex(pin + challenge)).hexdigest().upper()
+            payload = {
+                "challenge": challenge,
+                "securityPinHash": pinhash,
+                "securityToken": token,
+            }
         else:
             payload = {}
 
@@ -162,12 +166,12 @@ class Client:
         if model is None:
             data = await self.getCapabilities(vin)
             model = data.get("carModel", None)
-            
+
         if model is not None:
             progressResult = await self._connection.put(
                 f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/profile",
                 json=profile,
-                )
+            )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
@@ -487,7 +491,7 @@ class Client:
             f"https://api.porsche.com/service-vehicle/service-access/{vin}/details"
         )
         # Find out if we're in privacy mode
-        is_privacy = data['vehicleServiceEnabledMap']['VSR'] == 'DISABLED'
+        is_privacy = data["vehicleServiceEnabledMap"]["VSR"] == "DISABLED"
         data["privacyMode"] = is_privacy
         return data
 
@@ -541,4 +545,3 @@ class Client:
                 f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}?timezone={self.timezone}"
             )
             return data
-

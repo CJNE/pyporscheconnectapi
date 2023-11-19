@@ -41,12 +41,11 @@ trace_config = aiohttp.TraceConfig()
 trace_config.on_request_start.append(on_request_start)
 trace_config.on_request_end.append(on_request_end)
 
-AUTHORIZATION_SERVER="identity.porsche.com"
-REDIRECT_URI="https://my.porsche.com/"
-AUDIENCE="https://api.porsche.com"
-CLIENT_ID="UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
-SCOPE="openid"
-
+AUTHORIZATION_SERVER = "identity.porsche.com"
+REDIRECT_URI = "https://my.porsche.com/"
+AUDIENCE = "https://api.porsche.com"
+CLIENT_ID = "UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
+SCOPE = "openid"
 
 
 class Connection:
@@ -92,14 +91,13 @@ class Connection:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
-            have_code = params.get('code', None)
+            have_code = params.get("code", None)
             if have_code is not None:
                 _LOGGER.debug("We already have a code in session, skip login")
-                self.auth_state['code'] = have_code
+                self.auth_state["code"] = have_code
                 return
             self.auth_state["state"] = params["state"][0]
         _LOGGER.debug(self.auth_state)
-
 
         # Post username
         _LOGGER.debug("POST username")
@@ -110,21 +108,28 @@ class Connection:
             "webauthn-available": False,
             "is-brave": False,
             "webauthn-platform-available": False,
-            "action": "default"
+            "action": "default",
         }
         auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier?state={self.auth_state['state']}"
         verify_body = {}
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
+        async with self.websession.post(
+            auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            max_redirects=30,
+        ) as resp:
             # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
-                raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
+                raise WrongCredentials(
+                    message.get("message", message.get("description", "Unknown error"))
+                )
 
             # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
             if resp.status == 400:
                 html_body = await resp.text()
                 _LOGGER.debug(html_body)
-                raise CaptchaRequired('Captcha required')
+                raise CaptchaRequired("Captcha required")
 
             _LOGGER.debug(resp)
 
@@ -134,19 +139,26 @@ class Connection:
             "state": self.auth_state["state"],
             "username": self.email,
             "password": self.password,
-            "action": "default"
+            "action": "default",
         }
         auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/password?state={self.auth_state['state']}"
         verify_body = {}
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, allow_redirects=False) as resp:
+        async with self.websession.post(
+            auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            allow_redirects=False,
+        ) as resp:
             # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
-                raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
+                raise WrongCredentials(
+                    message.get("message", message.get("description", "Unknown error"))
+                )
 
             _LOGGER.debug(resp)
 
-            resume_url = resp.headers['Location']
+            resume_url = resp.headers["Location"]
             _LOGGER.debug(f"Resume at {resume_url}")
 
         _LOGGER.debug("Sleeping 2.5s...")
@@ -163,7 +175,7 @@ class Connection:
 
         _LOGGER.debug("Sleeping 2.5s...")
         await asyncio.sleep(2.5)
-        
+
         self._isLoggedIn = True
         return True
 
@@ -183,19 +195,25 @@ class Connection:
         if not self._isLoggedIn or wasExpired:
             await self._login()
 
-
         _LOGGER.debug("POST to access token endpoint...")
         auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
         auth_body = {
-                "client_id": application['client_id'],
-                "grant_type": "authorization_code",
-                "code": self.auth_state['code'],
-                "redirect_uri": REDIRECT_URI
-                }
+            "client_id": application["client_id"],
+            "grant_type": "authorization_code",
+            "code": self.auth_state["code"],
+            "redirect_uri": REDIRECT_URI,
+        }
         _LOGGER.debug(auth_body)
-        _LOGGER.debug( "Requesting access token for client id %s", application["client_id"])
+        _LOGGER.debug(
+            "Requesting access token for client id %s", application["client_id"]
+        )
         now = calendar.timegm(datetime.datetime.now().timetuple())
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
+        async with self.websession.post(
+            auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            max_redirects=30,
+        ) as resp:
             _LOGGER.debug(f"Response status {resp.status}")
             token_data = await resp.json()
             _LOGGER.debug(token_data)
@@ -207,7 +225,6 @@ class Connection:
             _LOGGER.debug("Token: %s", token)
             self.isTokenRefreshed = True
             return token
-
 
     async def get(self, url, params=None):
         try:

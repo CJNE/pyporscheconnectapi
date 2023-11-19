@@ -15,6 +15,7 @@ logging.root.setLevel(logging.DEBUG)
 email = argv[1]
 password = argv[2]
 
+
 async def vehicles() -> None:
     conn = Connection(email, password)
     tokens = await conn.getAllTokens()
@@ -23,9 +24,12 @@ async def vehicles() -> None:
 
     vehicles = await client.getVehicles()
     for vehicle in vehicles:
-        print(f"VIN: {vehicle['vin']} Model: {vehicle['modelDescription']} Year: {vehicle['modelYear']}")
+        print(
+            f"VIN: {vehicle['vin']} Model: {vehicle['modelDescription']} Year: {vehicle['modelYear']}"
+        )
 
     await conn.close()
+
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(vehicles())
