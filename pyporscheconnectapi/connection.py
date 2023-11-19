@@ -11,7 +11,9 @@ import logging
 import time
 import base64
 import os
-import urllib.parse
+import urllib
+from urllib.parse import urlunparse, urlencode
+from collections import namedtuple
 from typing import Dict, Text
 from bs4 import BeautifulSoup
 
@@ -84,10 +86,36 @@ class Connection:
         _LOGGER.debug("New connection prepared")
 
     async def _login(self):
+        Components = namedtuple(
+            typename="Components",
+            field_names=["scheme", "netloc", "url", "params", "query", "fragment"],
+        )
+
+        # 1. Get initial state
+
         _LOGGER.debug("Start authentication, get initial state from auth server")
-        # Do not follow redirect
-        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales={self.language}-{self.country}&audience={AUDIENCE}&scope={SCOPE}"
-        async with self.websession.get(start_login_url, allow_redirects=False) as resp:
+
+        query_params = {
+            "response_type": "code",
+            "client_id": CLIENT_ID,
+            "redirect_uri": REDIRECT_URI,
+            "ui_locales": self.language + "-" + self.country,
+            "audience": AUDIENCE,
+            "scope": SCOPE,
+        }
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url="/authorize",
+                params="",
+                query=urlencode(query_params),
+                fragment="",
+            )
+        )
+
+        async with self.websession.get(url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
@@ -99,8 +127,25 @@ class Connection:
             self.auth_state["state"] = params["state"][0]
         _LOGGER.debug(self.auth_state)
 
-        # Post username
+        # 2. Post username
+
         _LOGGER.debug("POST username")
+
+        query_params = {
+            "state": self.auth_state["state"],
+        }
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url="/u/login/identifier",
+                params="",
+                query=urlencode(query_params),
+                fragment="",
+            )
+        )
+
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
@@ -110,10 +155,9 @@ class Connection:
             "webauthn-platform-available": False,
             "action": "default",
         }
-        auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier?state={self.auth_state['state']}"
-        verify_body = {}
+
         async with self.websession.post(
-            auth_url,
+            url,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=auth_body,
             max_redirects=30,
@@ -133,18 +177,34 @@ class Connection:
 
             _LOGGER.debug(resp)
 
-        # Post password
+        # 3. Post password
+
         _LOGGER.debug("POST password")
+
+        query_params = {
+            "state": self.auth_state["state"],
+        }
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url="/u/login/password",
+                params="",
+                query=urlencode(query_params),
+                fragment="",
+            )
+        )
+
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
             "password": self.password,
             "action": "default",
         }
-        auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/password?state={self.auth_state['state']}"
-        verify_body = {}
+
         async with self.websession.post(
-            auth_url,
+            url,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=auth_body,
             allow_redirects=False,
@@ -164,9 +224,20 @@ class Connection:
         _LOGGER.debug("Sleeping 2.5s...")
         await asyncio.sleep(2.5)
 
-        # Resume auth to get authorization code
-        auth_url = f"https://{AUTHORIZATION_SERVER}{resume_url}"
-        async with self.websession.get(auth_url, allow_redirects=False) as resp:
+        # 4. Resume auth to get authorization code
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url=resume_url,
+                params="",
+                query="",
+                fragment="",
+            )
+        )
+
+        async with self.websession.get(url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
