@@ -175,8 +175,8 @@ class Connection:
         await asyncio.sleep(2.5)
 
         # Resume auth
-        auth_url = f"https://{{AUTHORIZATION_SERVER}}{resume_url}"
-        async with self.websession.get(start_login_url, allow_redirects=False) as resp:
+        auth_url = f"https://{AUTHORIZATION_SERVER}{resume_url}"
+        async with self.websession.get(auth_url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
