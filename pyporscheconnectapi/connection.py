@@ -10,9 +10,7 @@ import json
 import logging
 import time
 import base64
-import hashlib
 import os
-import re
 import urllib.parse
 from typing import Dict, Text
 from bs4 import BeautifulSoup
@@ -24,7 +22,7 @@ try:
 except ImportError:
     pass
 
-from .exceptions import WrongCredentials, PorscheException
+from .exceptions import CaptchaRequired, WrongCredentials, PorscheException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,9 +44,6 @@ trace_config.on_request_end.append(on_request_end)
 AUTHORIZATION_SERVER="identity.porsche.com"
 REDIRECT_URI="https://my.porsche.com/"
 AUDIENCE="https://api.porsche.com"
-TENANT="porsche-production"
-COUNTRY="de"
-LANGUAGE="de_DE"
 CLIENT_ID="UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
 
 
@@ -70,24 +65,7 @@ class Connection:
             "api": {
                 "client_id": CLIENT_ID,
                 "redirect_uri": REDIRECT_URI,
-                "prefix": "https://api.porsche.com/core/api/",
-            },
-            "profile": {
-                "client_id": CLIENT_ID,
-                "api_key": "QPw3VOLAMfI7r0nmRY8ELq4RzZpZeXEE",
-                "redirect_uri": REDIRECT_URI,
-                "prefix": "https://api.porsche.com/profiles",
-            },
-            # "auth": {
-            #     "client_id": "4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA",
-            #     "redirect_uri": "https://my.porsche.com/core/de/de_DE/",
-            #     "prefix": "https://login.porsche.com",
-            # },
-            "carcontrol": {
-                #"client_id": "Ux8WmyzsOAGGmvmWnW7GLEjIILHEztAs",
-                "client_id": CLIENT_ID,
-                "redirect_uri": "https://my.porsche.com/myservices/auth/auth.html",
-                "prefix": "https://api.porsche.com/",
+                "prefix": "https://api.porsche.com",
             },
         }
 
@@ -119,12 +97,11 @@ class Connection:
                 self.auth_state['code'] = have_code
                 return
             self.auth_state["state"] = params["state"][0]
-            # self.auth_state["client"] = params["client"][0]
         _LOGGER.debug(self.auth_state)
 
 
         # Post username
-        _LOGGER.debug("POST username....")
+        _LOGGER.debug("POST username")
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
@@ -142,13 +119,16 @@ class Connection:
                 message = await resp.json()
                 raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
 
-            html_body = await resp.text()
+            # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
+            if resp.status == 400:
+                html_body = await resp.text()
+                _LOGGER.debug(html_body)
+                raise CaptchaRequired('Captcha required')
 
             _LOGGER.debug(resp)
-            _LOGGER.debug(html_body)
 
         # Post password
-        _LOGGER.debug("POST password....")
+        _LOGGER.debug("POST password")
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
@@ -163,10 +143,7 @@ class Connection:
                 message = await resp.json()
                 raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
 
-            html_body = await resp.text()
-
-            _LOGGER.debug(resp.status)
-            _LOGGER.debug(html_body)
+            _LOGGER.debug(resp)
 
             resume_url = resp.headers['Location']
             _LOGGER.debug(f"Resume at {resume_url}")
@@ -174,14 +151,14 @@ class Connection:
         _LOGGER.debug("Sleeping 2.5s...")
         await asyncio.sleep(2.5)
 
-        # Resume auth
+        # Resume auth to get authorization code
         auth_url = f"https://{AUTHORIZATION_SERVER}{resume_url}"
         async with self.websession.get(auth_url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
             self.auth_state["code"] = params["code"][0]
-            _LOGGER.debug(f"Got code {self.auth_state['code']}")
+            _LOGGER.debug(f"Got authorization code {self.auth_state['code']}")
 
         _LOGGER.debug("Sleeping 2.5s...")
         await asyncio.sleep(2.5)
@@ -206,7 +183,7 @@ class Connection:
             await self._login()
 
 
-        _LOGGER.debug("POST to acces token endpoint...")
+        _LOGGER.debug("POST to access token endpoint...")
         auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
         auth_body = {
                 "client_id": application['client_id'],
