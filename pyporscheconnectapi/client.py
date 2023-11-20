@@ -491,9 +491,11 @@ class Client:
             f"https://api.porsche.com/service-vehicle/service-access/{vin}/details"
         )
         # Find out if we're in privacy mode
-        is_privacy = data["vehicleServiceEnabledMap"]["VSR"] == "DISABLED"
-        data["privacyMode"] = is_privacy
-        return data
+        privacy = data.get("vehicleServiceEnabledMap", {}).get("VSR", None)
+        if privacy is not None:
+            is_privacy = data["vehicleServiceEnabledMap"]["VSR"] == "DISABLED"
+            data["privacyMode"] = is_privacy
+            return data
 
     async def getCapabilities(self, vin):
         data = await self._connection.get(
