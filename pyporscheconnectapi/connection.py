@@ -47,8 +47,7 @@ AUTHORIZATION_SERVER = "identity.porsche.com"
 REDIRECT_URI = "https://my.porsche.com/"
 AUDIENCE = "https://api.porsche.com"
 CLIENT_ID = "UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
-SCOPE = "openid"
-
+SCOPE="openid profile email pid:user_profile.addresses:read pid:user_profile.birthdate:read pid:user_profile.dealers:read pid:user_profile.emails:read pid:user_profile.locale:read pid:user_profile.name:read pid:user_profile.phones:read pid:user_profile.porscheid:read pid:user_profile.vehicles:read pid:user_profile.vehicles:register"
 
 class Connection:
     """Connection to Porsche Connect API."""
