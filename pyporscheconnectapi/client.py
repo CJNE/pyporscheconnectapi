@@ -49,8 +49,12 @@ class Client:
 
             challenge = challengeResult.get("challenge")
             token = challengeResult.get("securityToken")
-            pinhash = sha512(bytes.fromhex(pin+challenge)).hexdigest().upper()
-            payload = {"challenge": challenge, "securityPinHash": pinhash, "securityToken": token}
+            pinhash = sha512(bytes.fromhex(pin + challenge)).hexdigest().upper()
+            payload = {
+                "challenge": challenge,
+                "securityPinHash": pinhash,
+                "securityToken": token,
+            }
         else:
             payload = {}
 
@@ -69,7 +73,7 @@ class Client:
         result = await self._spinner(
             f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/{progressResult['requestId']}/status"
         )
-        if result["status"] == "SUCCESS":
+        if result.get("status") == "SUCCESS":
             result = await self._connection.get(
                 f"https://api.porsche.com/service-vehicle/remote-lock-unlock/{vin}/last-actions"
             )
@@ -96,11 +100,13 @@ class Client:
     ):
         if model is None:
             data = await self.getCapabilities(vin)
-            model = data["carModel"]
-        progressResult = await self._connection.post(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/{action}?hasDX1=false",
-            json={},
-        )
+            model = data.get("carModel", None)
+
+        if model is not None:
+            progressResult = await self._connection.post(
+                f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/toggle-direct-charging/{action}?hasDX1=false",
+                json={},
+            )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
@@ -136,11 +142,13 @@ class Client:
         """Add new charge & climate timer"""
         if model is None:
             data = await self.getCapabilities(vin)
-            model = data["carModel"]
-        progressResult = await self._connection.post(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/timer",
-            json=timer,
-        )
+            model = data.get("carModel", None)
+
+        if model is not None:
+            progressResult = await self._connection.post(
+                f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/timer",
+                json=timer,
+            )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
@@ -157,12 +165,13 @@ class Client:
     ):
         if model is None:
             data = await self.getCapabilities(vin)
-            model = data["carModel"]
+            model = data.get("carModel", None)
 
-        progressResult = await self._connection.put(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/profile",
-            json=profile,
-        )
+        if model is not None:
+            progressResult = await self._connection.put(
+                f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}/profile",
+                json=profile,
+            )
         if not waitForConfirmation:
             return progressResult
         result = await self._spinner(
@@ -420,14 +429,12 @@ class Client:
 
     async def isAllowed(self, vin):
         perms = await self.getPermissions(vin)
-        print(perms)
         allowed = False
         reason = ""
         if perms["userIsActive"] and perms["userRoleStatus"] == "ENABLED":
             service_status = await self._connection.get(
                 f"https://api.porsche.com/core/api/v4/de/de_DE/services?{vin}"
             )
-            print(service_status)
             reason = service_status.get(
                 "STATUS", service_status.get("disabledReason", "")
             )
@@ -436,7 +443,6 @@ class Client:
             )
             _LOGGER.debug(mydata)
             for vehicle in mydata["vehicles"]:
-                print(vehicle)
                 if vehicle["vin"] == vin:
                     if vehicle["confirmed"] and vehicle["pcc"]:
                         allowed = True
@@ -485,9 +491,11 @@ class Client:
             f"https://api.porsche.com/service-vehicle/service-access/{vin}/details"
         )
         # Find out if we're in privacy mode
-        is_privacy = data['vehicleServiceEnabledMap']['VSR'] == 'DISABLED'
-        data["privacyMode"] = is_privacy
-        return data
+        privacy = data.get("vehicleServiceEnabledMap", {}).get("VSR", None)
+        if privacy is not None:
+            is_privacy = data["vehicleServiceEnabledMap"]["VSR"] == "DISABLED"
+            data["privacyMode"] = is_privacy
+            return data
 
     async def getCapabilities(self, vin):
         data = await self._connection.get(
@@ -532,8 +540,10 @@ class Client:
     ):
         if model is None:
             data = await self.getCapabilities(vin)
-            model = data["carModel"]
-        data = await self._connection.get(
-            f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}?timezone={self.timezone}"
-        )
-        return data
+            model = data.get("carModel", None)
+
+        if model is not None:
+            data = await self._connection.get(
+                f"https://api.porsche.com/e-mobility/{self.locale_str}/{model}/{vin}?timezone={self.timezone}"
+            )
+            return data

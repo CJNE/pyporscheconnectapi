@@ -20,7 +20,9 @@ class PorscheException(Exception):
             if isinstance(code, str):
                 self.message = self.code
                 return
-            if self.code == 401:
+            if self.code == 400:
+                self.message = "BAD_REQUEST"
+            elif self.code == 401:
                 self.message = "UNAUTHORIZED"
             elif self.code == 404:
                 self.message = "NOT_FOUND"
@@ -48,3 +50,7 @@ class WrongCredentials(PorscheException):
     pass
 
 
+class CaptchaRequired(PorscheException):
+    """Class of exception when captcha verification is required."""
+
+    pass

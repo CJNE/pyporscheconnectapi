@@ -10,10 +10,10 @@ import json
 import logging
 import time
 import base64
-import hashlib
 import os
-import re
-import urllib.parse
+import urllib
+from urllib.parse import urlunparse, urlencode
+from collections import namedtuple
 from typing import Dict, Text
 from bs4 import BeautifulSoup
 
@@ -24,7 +24,7 @@ try:
 except ImportError:
     pass
 
-from .exceptions import WrongCredentials, PorscheException
+from .exceptions import CaptchaRequired, WrongCredentials, PorscheException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,15 +43,11 @@ trace_config = aiohttp.TraceConfig()
 trace_config.on_request_start.append(on_request_start)
 trace_config.on_request_end.append(on_request_end)
 
-AUTHORIZATION_SERVER="identity.porsche.com"
-REDIRECT_URI="https://my.porsche.com/"
-AUDIENCE="https://api.porsche.com"
-TENANT="porsche-production"
-COUNTRY="de"
-LANGUAGE="de_DE"
-CLIENT_ID="UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
-
-
+AUTHORIZATION_SERVER = "identity.porsche.com"
+REDIRECT_URI = "https://my.porsche.com/"
+AUDIENCE = "https://api.porsche.com"
+CLIENT_ID = "UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
+SCOPE="openid profile email pid:user_profile.addresses:read pid:user_profile.birthdate:read pid:user_profile.dealers:read pid:user_profile.emails:read pid:user_profile.locale:read pid:user_profile.name:read pid:user_profile.phones:read pid:user_profile.porscheid:read pid:user_profile.vehicles:read pid:user_profile.vehicles:register"
 
 class Connection:
     """Connection to Porsche Connect API."""
@@ -70,24 +66,7 @@ class Connection:
             "api": {
                 "client_id": CLIENT_ID,
                 "redirect_uri": REDIRECT_URI,
-                "prefix": "https://api.porsche.com/core/api/",
-            },
-            "profile": {
-                "client_id": CLIENT_ID,
-                "api_key": "QPw3VOLAMfI7r0nmRY8ELq4RzZpZeXEE",
-                "redirect_uri": REDIRECT_URI,
-                "prefix": "https://api.porsche.com/profiles",
-            },
-            # "auth": {
-            #     "client_id": "4mPO3OE5Srjb1iaUGWsbqKBvvesya8oA",
-            #     "redirect_uri": "https://my.porsche.com/core/de/de_DE/",
-            #     "prefix": "https://login.porsche.com",
-            # },
-            "carcontrol": {
-                #"client_id": "Ux8WmyzsOAGGmvmWnW7GLEjIILHEztAs",
-                "client_id": CLIENT_ID,
-                "redirect_uri": "https://my.porsche.com/myservices/auth/auth.html",
-                "prefix": "https://api.porsche.com/",
+                "prefix": "https://api.porsche.com",
             },
         }
 
@@ -106,25 +85,66 @@ class Connection:
         _LOGGER.debug("New connection prepared")
 
     async def _login(self):
+        Components = namedtuple(
+            typename="Components",
+            field_names=["scheme", "netloc", "url", "params", "query", "fragment"],
+        )
+
+        # 1. Get initial state
+
         _LOGGER.debug("Start authentication, get initial state from auth server")
-        # Do not follow redirect
-        start_login_url = f"https://{AUTHORIZATION_SERVER}/authorize?response_type=code&client_id={CLIENT_ID}&code_challenge_method=S256&redirect_uri={REDIRECT_URI}&ui_locales=de-DE&audience={AUDIENCE}&scope=openid"
-        async with self.websession.get(start_login_url, allow_redirects=False) as resp:
+
+        query_params = {
+            "response_type": "code",
+            "client_id": CLIENT_ID,
+            "redirect_uri": REDIRECT_URI,
+            "ui_locales": self.language + "-" + self.country,
+            "audience": AUDIENCE,
+            "scope": SCOPE,
+        }
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url="/authorize",
+                params="",
+                query=urlencode(query_params),
+                fragment="",
+            )
+        )
+
+        async with self.websession.get(url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
-            have_code = params.get('code', None)
+            have_code = params.get("code", None)
             if have_code is not None:
                 _LOGGER.debug("We already have a code in session, skip login")
-                self.auth_state['code'] = have_code
+                self.auth_state["code"] = have_code
                 return
             self.auth_state["state"] = params["state"][0]
-            # self.auth_state["client"] = params["client"][0]
         _LOGGER.debug(self.auth_state)
 
+        # 2. Post username
 
-        # Post username
-        _LOGGER.debug("POST username....")
+        _LOGGER.debug("POST username")
+
+        query_params = {
+            "state": self.auth_state["state"],
+        }
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url="/u/login/identifier",
+                params="",
+                query=urlencode(query_params),
+                fragment="",
+            )
+        )
+
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
@@ -132,60 +152,100 @@ class Connection:
             "webauthn-available": False,
             "is-brave": False,
             "webauthn-platform-available": False,
-            "action": "default"
+            "action": "default",
         }
-        auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier?state={self.auth_state['state']}"
-        verify_body = {}
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
+
+        async with self.websession.post(
+            url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            max_redirects=30,
+        ) as resp:
             # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
-                raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
+                raise WrongCredentials(
+                    message.get("message", message.get("description", "Unknown error"))
+                )
 
-            html_body = await resp.text()
+            # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
+            if resp.status == 400:
+                html_body = await resp.text()
+                _LOGGER.debug(html_body)
+                raise CaptchaRequired("Captcha required")
 
             _LOGGER.debug(resp)
-            _LOGGER.debug(html_body)
 
-        # Post password
-        _LOGGER.debug("POST password....")
+        # 3. Post password
+
+        _LOGGER.debug("POST password")
+
+        query_params = {
+            "state": self.auth_state["state"],
+        }
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url="/u/login/password",
+                params="",
+                query=urlencode(query_params),
+                fragment="",
+            )
+        )
+
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
             "password": self.password,
-            "action": "default"
+            "action": "default",
         }
-        auth_url = f"https://{AUTHORIZATION_SERVER}/u/login/password?state={self.auth_state['state']}"
-        verify_body = {}
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, allow_redirects=False) as resp:
+
+        async with self.websession.post(
+            url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            allow_redirects=False,
+        ) as resp:
             # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
-                raise WrongCredentials(message.get('message', message.get('description', 'Unknown error')))
+                raise WrongCredentials(
+                    message.get("message", message.get("description", "Unknown error"))
+                )
 
-            html_body = await resp.text()
+            _LOGGER.debug(resp)
 
-            _LOGGER.debug(resp.status)
-            _LOGGER.debug(html_body)
-
-            resume_url = resp.headers['Location']
+            resume_url = resp.headers["Location"]
             _LOGGER.debug(f"Resume at {resume_url}")
 
         _LOGGER.debug("Sleeping 2.5s...")
         await asyncio.sleep(2.5)
 
-        # Resume auth
-        auth_url = f"https://{{AUTHORIZATION_SERVER}}{resume_url}"
-        async with self.websession.get(start_login_url, allow_redirects=False) as resp:
+        # 4. Resume auth to get authorization code
+
+        url = urlunparse(
+            Components(
+                scheme="https",
+                netloc=AUTHORIZATION_SERVER,
+                url=resume_url,
+                params="",
+                query="",
+                fragment="",
+            )
+        )
+
+        async with self.websession.get(url, allow_redirects=False) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             _LOGGER.debug(params)
             self.auth_state["code"] = params["code"][0]
-            _LOGGER.debug(f"Got code {self.auth_state['code']}")
+            _LOGGER.debug(f"Got authorization code {self.auth_state['code']}")
 
         _LOGGER.debug("Sleeping 2.5s...")
         await asyncio.sleep(2.5)
-        
+
         self._isLoggedIn = True
         return True
 
@@ -205,19 +265,25 @@ class Connection:
         if not self._isLoggedIn or wasExpired:
             await self._login()
 
-
-        _LOGGER.debug("POST to acces token endpoint...")
+        _LOGGER.debug("POST to access token endpoint...")
         auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
         auth_body = {
-                "client_id": application['client_id'],
-                "grant_type": "authorization_code",
-                "code": self.auth_state['code'],
-                "redirect_uri": REDIRECT_URI
-                }
+            "client_id": application["client_id"],
+            "grant_type": "authorization_code",
+            "code": self.auth_state["code"],
+            "redirect_uri": REDIRECT_URI,
+        }
         _LOGGER.debug(auth_body)
-        _LOGGER.debug( "Requesting access token for client id %s", application["client_id"])
+        _LOGGER.debug(
+            "Requesting access token for client id %s", application["client_id"]
+        )
         now = calendar.timegm(datetime.datetime.now().timetuple())
-        async with self.websession.post(auth_url, headers={"Content-Type": "application/x-www-form-urlencoded"}, data=auth_body, max_redirects=30) as resp:
+        async with self.websession.post(
+            auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            max_redirects=30,
+        ) as resp:
             _LOGGER.debug(f"Response status {resp.status}")
             token_data = await resp.json()
             _LOGGER.debug(token_data)
@@ -229,7 +295,6 @@ class Connection:
             _LOGGER.debug("Token: %s", token)
             self.isTokenRefreshed = True
             return token
-
 
     async def get(self, url, params=None):
         try:
