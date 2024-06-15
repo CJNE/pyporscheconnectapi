@@ -12,12 +12,14 @@ import time
 import base64
 import os
 import urllib
+
 from urllib.parse import urlunparse, urlencode
 from collections import namedtuple
 from typing import Dict, Text
-from bs4 import BeautifulSoup
 
 import aiohttp
+
+from .const import *
 
 try:
     from rich import print
@@ -43,11 +45,6 @@ trace_config = aiohttp.TraceConfig()
 trace_config.on_request_start.append(on_request_start)
 trace_config.on_request_end.append(on_request_end)
 
-AUTHORIZATION_SERVER = "identity.porsche.com"
-REDIRECT_URI = "https://my.porsche.com/"
-AUDIENCE = "https://api.porsche.com"
-CLIENT_ID = "UYsK00My6bCqJdbQhTQ0PbWmcSdIAMig"
-SCOPE="openid profile email pid:user_profile.addresses:read pid:user_profile.birthdate:read pid:user_profile.dealers:read pid:user_profile.emails:read pid:user_profile.locale:read pid:user_profile.name:read pid:user_profile.phones:read pid:user_profile.porscheid:read pid:user_profile.vehicles:read pid:user_profile.vehicles:register"
 
 class Connection:
     """Connection to Porsche Connect API."""
@@ -57,27 +54,18 @@ class Connection:
         email: Text = None,
         password: Text = None,
         websession: aiohttp.ClientSession = None,
-        language: Text = "de",
-        country: Text = "DE",
-        tokens=None,
+        x_client_id: Text = None,
+        token=None,
     ) -> None:
         """Initialize connection object."""
-        self.porscheApplications = {
-            "api": {
-                "client_id": CLIENT_ID,
-                "redirect_uri": REDIRECT_URI,
-                "prefix": "https://api.porsche.com",
-            },
-        }
 
         self.isTokenRefreshed = False
-        self.tokens = tokens or {}
+        self.token = token or None
         self.email = email
         self.password = password
+        self.x_client_id = "41843fb4-691d-4970-85c7-2673e8ecef40"
         self.websession = websession
         self._isLoggedIn = False
-        self.country = country
-        self.language = language
         self.auth_state = {}
 
         if self.websession is None:
@@ -98,9 +86,12 @@ class Connection:
             "response_type": "code",
             "client_id": CLIENT_ID,
             "redirect_uri": REDIRECT_URI,
-            "ui_locales": self.language + "-" + self.country,
             "audience": AUDIENCE,
             "scope": SCOPE,
+        }
+
+        headers = {
+            "User-Agent": USER_AGENT,
         }
 
         url = urlunparse(
@@ -114,10 +105,11 @@ class Connection:
             )
         )
 
-        async with self.websession.get(url, allow_redirects=False) as resp:
+        async with self.websession.get(
+            url, headers=headers, allow_redirects=False
+        ) as resp:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
-            _LOGGER.debug(params)
             have_code = params.get("code", None)
             if have_code is not None:
                 _LOGGER.debug("We already have a code in session, skip login")
@@ -145,6 +137,11 @@ class Connection:
             )
         )
 
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
         auth_body = {
             "state": self.auth_state["state"],
             "username": self.email,
@@ -157,7 +154,7 @@ class Connection:
 
         async with self.websession.post(
             url,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            headers=headers,
             data=auth_body,
             max_redirects=30,
         ) as resp:
@@ -204,7 +201,7 @@ class Connection:
 
         async with self.websession.post(
             url,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            headers=headers,
             data=auth_body,
             allow_redirects=False,
         ) as resp:
@@ -249,34 +246,30 @@ class Connection:
         self._isLoggedIn = True
         return True
 
-    async def getAllTokens(self):
+    async def getToken(self):
         now = calendar.timegm(datetime.datetime.now().timetuple())
-        for applicationKey in self.porscheApplications:
-            application = self.porscheApplications[applicationKey]
-            _LOGGER.debug(f"Get token for app {applicationKey}")
-            token = self.tokens.get(application["client_id"], None)
-            if token is None or token["expiration"] < now:
-                token = await self._requestToken(application)
-                self.tokens[application["client_id"]] = token
+        _LOGGER.debug(f"Get token")
+        token = self.token
+        if token is None or token["expiration"] < now:
+            token = await self._requestToken()
+            self.token = token
         self.isTokenRefreshed = False
-        return self.tokens
+        return self.token
 
-    async def _requestToken(self, application: Dict, wasExpired=False):
+    async def _requestToken(self, wasExpired=False):
         if not self._isLoggedIn or wasExpired:
             await self._login()
 
-        _LOGGER.debug("POST to access token endpoint...")
+        _LOGGER.debug("POST to access token endpoint:")
         auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
         auth_body = {
-            "client_id": application["client_id"],
+            "client_id": CLIENT_ID,
             "grant_type": "authorization_code",
             "code": self.auth_state["code"],
             "redirect_uri": REDIRECT_URI,
         }
         _LOGGER.debug(auth_body)
-        _LOGGER.debug(
-            "Requesting access token for client id %s", application["client_id"]
-        )
+        _LOGGER.debug("Requesting access token for client id %s", CLIENT_ID)
         now = calendar.timegm(datetime.datetime.now().timetuple())
         async with self.websession.post(
             auth_url,
@@ -298,8 +291,7 @@ class Connection:
 
     async def get(self, url, params=None):
         try:
-            application = self._applicationForURL(url)
-            headers = await self._createhead(application)
+            headers = await self._createhead()
             async with self.websession.get(url, params=params, headers=headers) as resp:
                 return await resp.json()
         except aiohttp.ClientResponseError as exception_:
@@ -307,8 +299,7 @@ class Connection:
 
     async def post(self, url, data=None, json=None):
         try:
-            application = self._applicationForURL(url)
-            headers = await self._createhead(application)
+            headers = await self._createhead()
             async with self.websession.post(
                 url, data=data, json=json, headers=headers
             ) as resp:
@@ -318,8 +309,7 @@ class Connection:
 
     async def put(self, url, data=None, json=None):
         try:
-            application = self._applicationForURL(url)
-            headers = await self._createhead(application)
+            headers = await self._createhead()
             async with self.websession.put(
                 url, data=data, json=json, headers=headers
             ) as resp:
@@ -329,8 +319,7 @@ class Connection:
 
     async def delete(self, url, data=None, json=None):
         try:
-            application = self._applicationForURL(url)
-            headers = await self._createhead(application)
+            headers = await self._createhead()
             async with self.websession.delete(
                 url, data=data, json=json, headers=headers
             ) as resp:
@@ -338,31 +327,15 @@ class Connection:
         except aiohttp.ClientResponseError as exception_:
             raise PorscheException(exception_.status)
 
-    def _applicationForURL(self, url):
-        for key in self.porscheApplications:
-            app = self.porscheApplications[key]
-            if url.startswith(app["prefix"]):
-                return app
-        # else return None
-        return None
-
-    async def _createhead(self, application):
-        # If no application matched the request URL then no auth headers are added
-        if application is None:
-            return {}
+    async def _createhead(self):
         now = calendar.timegm(datetime.datetime.now().timetuple())
-        token = self.tokens.get(application["client_id"], None)
+        token = self.token
         if token is None or token["expiration"] < now:
-            token = await self._requestToken(
-                application, wasExpired=(token is not None)
-            )
-            self.tokens[application["client_id"]] = token
+            token = await self._requestToken(wasExpired=(token is not None))
+            self.token = token
         head = {
             "Authorization": f"Bearer {token['access_token']}",
-            "origin": "https://my.porsche.com",
-            "apikey": application.get("api_key", token["apikey"]),
-            "x-vrs-url-country": self.country.lower(),
-            "x-vrs-url-language": f"{self.language.lower()}_{self.country.upper()}",
+            "X-Client-ID": self.x_client_id,
         }
         return head
 

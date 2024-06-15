@@ -18,18 +18,23 @@ password = argv[2]
 
 async def vehicles() -> None:
     conn = Connection(email, password)
-    tokens = await conn.getAllTokens()
-    print(tokens)
+    token = await conn.getToken()
+    print(token)
     client = Client(conn)
 
     vehicles = await client.getVehicles()
     for vehicle in vehicles:
         print(
-            f"VIN: {vehicle['vin']} Model: {vehicle['modelDescription']} Year: {vehicle['modelYear']}"
+            f"VIN: {vehicle['vin']}, Model: {vehicle['modelName']}, Year: {vehicle['modelType']['year']}"
         )
 
     await conn.close()
 
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(vehicles())
+if __name__ == "__main__":
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(vehicles())
+    except KeyboardInterrupt:
+        pass
