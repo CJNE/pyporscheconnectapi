@@ -59,3 +59,9 @@ class Client:
             f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vin}?{measurements+wakeup}"
         )
         return data
+
+    async def getPictures(self, vin, size=2):
+        data = await self._connection.get(
+            f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vin}/pictures?size={size}"
+        )
+        return data

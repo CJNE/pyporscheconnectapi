@@ -64,6 +64,8 @@ async def main(args):
                         data = await client.getCurrentOverview(vin)
                 elif args.command == "capabilities":
                     data = await client.getCapabilities(vin)
+                elif args.command == "pictures":
+                    data = await client.getPictures(vin, size=args.size)
                 print(json.dumps(data, indent=2))
 
     except WrongCredentials as e:
@@ -84,6 +86,10 @@ def add_arg_vin(parser):
 
 def add_arg_model(parser):
     parser.add_argument("-m", "--model", dest="model", default=None)
+
+
+def add_arg_size(parser):
+    parser.add_argument("-s", "--size", dest="size", default=2)
 
 
 def cli():
@@ -120,6 +126,10 @@ def cli():
 
     parser_command_overview = subparsers.add_parser("overview")
     add_arg_vin(parser_command_overview)
+
+    parser_command_pictures = subparsers.add_parser("pictures")
+    add_arg_vin(parser_command_pictures)
+    add_arg_size(parser_command_pictures)
 
     args = parser.parse_args()
 
