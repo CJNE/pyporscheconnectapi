@@ -133,3 +133,6 @@ dmypy.json
 *.swp
 *.swo
 .direnv
+
+# Project Stuff
+.porscheconnect.cfg
