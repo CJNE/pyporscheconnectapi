@@ -6,6 +6,7 @@ AUDIENCE = "https://api.porsche.com"
 CLIENT_ID = "XhygisuebbrqQ80byOuU5VncxLIm8E6H"
 X_CLIENT_ID = "41843fb4-691d-4970-85c7-2673e8ecef40"
 USER_AGENT = "pyporscheconnectapi/0.2.0"
+# USER_AGENT = "de.porsche.one/11.24.14+301 (ios)"
 SCOPE = "openid profile email offline_access mbb ssodb badge vin dealers cars charging manageCharging plugAndCharge climatisation manageClimatisation pid:user_profile.porscheid:read pid:user_profile.name:read pid:user_profile.vehicles:read pid:user_profile.dealers:read pid:user_profile.emails:read pid:user_profile.phones:read pid:user_profile.addresses:read pid:user_profile.birthdate:read pid:user_profile.locale:read pid:user_profile.legal:read"
 
 

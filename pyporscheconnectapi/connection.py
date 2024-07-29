@@ -12,6 +12,7 @@ import time
 import base64
 import os
 import urllib
+import uuid
 
 from urllib.parse import urlunparse, urlencode
 from collections import namedtuple
@@ -59,7 +60,6 @@ class Connection:
     ) -> None:
         """Initialize connection object."""
 
-        self.isTokenRefreshed = False
         self.token = token or None
         self.email = email
         self.password = password
@@ -111,10 +111,12 @@ class Connection:
             location = resp.headers["Location"]
             params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
             have_code = params.get("code", None)
+
             if have_code is not None:
                 _LOGGER.debug("We already have a code in session, skip login")
                 self.auth_state["code"] = have_code
                 return
+
             self.auth_state["state"] = params["state"][0]
         _LOGGER.debug(self.auth_state)
 
@@ -158,6 +160,7 @@ class Connection:
             data=auth_body,
             max_redirects=30,
         ) as resp:
+
             # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
@@ -168,7 +171,6 @@ class Connection:
             # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
             if resp.status == 400:
                 html_body = await resp.text()
-                _LOGGER.debug(html_body)
                 raise CaptchaRequired("Captcha required")
 
             _LOGGER.debug(resp)
@@ -205,6 +207,7 @@ class Connection:
             data=auth_body,
             allow_redirects=False,
         ) as resp:
+
             # In case of wrong credentials there is a state param in the redirect url
             if resp.status == 401:
                 message = await resp.json()
@@ -250,14 +253,18 @@ class Connection:
         now = calendar.timegm(datetime.datetime.now().timetuple())
         _LOGGER.debug(f"Get token")
         token = self.token
-        if token is None or token["expiration"] < now:
+        if token is None:
             token = await self._requestToken()
             self.token = token
-        self.isTokenRefreshed = False
+
+        if token["expiration"] < now:
+            token = await self._refreshToken()
+            self.token = token
+
         return self.token
 
-    async def _requestToken(self, wasExpired=False):
-        if not self._isLoggedIn or wasExpired:
+    async def _requestToken(self):
+        if not self._isLoggedIn:
             await self._login()
 
         _LOGGER.debug("POST to access token endpoint:")
@@ -286,7 +293,42 @@ class Connection:
             token["decoded_token"] = jwt
             token["apikey"] = jwt["azp"]
             _LOGGER.debug("Token: %s", token)
-            self.isTokenRefreshed = True
+            return token
+
+    async def _refreshToken(self):
+        _LOGGER.debug("POST to refresh token endpoint:")
+        auth_url = f"https://{AUTHORIZATION_SERVER}/oauth/token"
+        auth_body = {
+            "client_id": CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": self.token["refresh_token"],
+        }
+        _LOGGER.debug(auth_body)
+        _LOGGER.debug(
+            "Requesting access token using refresh token for client id %s", CLIENT_ID
+        )
+        now = calendar.timegm(datetime.datetime.now().timetuple())
+        async with self.websession.post(
+            auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=auth_body,
+            max_redirects=30,
+        ) as resp:
+            _LOGGER.debug(f"Response status {resp.status}")
+            if resp.status == 200:
+                _LOGGER.debug(f"Refresh ok")
+                token_data = await resp.json()
+                _LOGGER.debug(token_data)
+                jwt = self.jwt_payload_decode(token_data["access_token"])
+                token = token_data
+                token["expiration"] = now + token_data.get("exp", 3600)
+                token["decoded_token"] = jwt
+                token["apikey"] = jwt["azp"]
+                _LOGGER.debug("Token: %s", token)
+            else:
+                _LOGGER.debug(f"Refresh rejected, restarting authentication flow")
+                self._isLoggedIn = False
+                token = await self._requestToken()
             return token
 
     async def get(self, url, params=None):
@@ -330,12 +372,19 @@ class Connection:
     async def _createhead(self):
         now = calendar.timegm(datetime.datetime.now().timetuple())
         token = self.token
-        if token is None or token["expiration"] < now:
-            token = await self._requestToken(wasExpired=(token is not None))
+        if token is None:
+            token = await self._requestToken()
             self.token = token
+        if token["expiration"] < now:
+            token = await self._refreshToken()
+            self.token = token
+        xid = str(uuid.uuid4()).upper()
         head = {
             "Authorization": f"Bearer {token['access_token']}",
             "X-Client-ID": self.x_client_id,
+            "User-Agent": USER_AGENT,
+            "X-Request-ID": xid,
+            "X-Trace-ID": xid,
         }
         return head
 

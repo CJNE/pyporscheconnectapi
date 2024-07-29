@@ -21,9 +21,6 @@ class Client:
     ) -> None:
         self._connection = connection
 
-    def isTokenRefreshed(self):
-        return self._connection.isTokenRefreshed
-
     async def getToken(self):
         return await self._connection.getToken()
 
