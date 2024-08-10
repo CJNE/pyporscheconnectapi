@@ -62,6 +62,12 @@ async def main(args):
                         data = await client.getStoredOverview(vin)
                     else:
                         data = await client.getCurrentOverview(vin)
+                elif args.command == "chargingprofile":
+                    data = await client.updateChargingProfile(
+                        vin,
+                        profileId=args.profileid,
+                        minimumChargeLevel=args.minimumchargelevel,
+                    )
                 elif args.command == "capabilities":
                     data = await client.getCapabilities(vin)
                 print(json.dumps(data, indent=2))
@@ -120,6 +126,30 @@ def cli():
 
     parser_command_overview = subparsers.add_parser("overview")
     add_arg_vin(parser_command_overview)
+
+    parser_command_chargingprofile = subparsers.add_parser(
+        "chargingprofile", help="Update parameters in configured charging profile"
+    )
+    add_arg_vin(parser_command_chargingprofile)
+    parser_command_chargingprofile.add_argument(
+        "--profileid", dest="profileid", type=int, required=False, help="Profile id"
+    )
+    parser_command_chargingprofile.add_argument(
+        "--chargelevel",
+        dest="minimumchargelevel",
+        type=int,
+        required=False,
+        default=None,
+        help="Minimun charge level",
+    )
+    parser_command_chargingprofile.add_argument(
+        "--profileactive",
+        dest="profileactive",
+        type=bool,
+        required=False,
+        default=None,
+        help="Profile active status",
+    )
 
     args = parser.parse_args()
 
