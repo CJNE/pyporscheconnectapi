@@ -1,1 +1,1 @@
-aiohttp
+httpx

@@ -2,8 +2,6 @@ from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import WrongCredentials
 from hashlib import sha512
 
-import asyncio
-import datetime
 import logging
 import uuid
 
@@ -26,7 +24,7 @@ class Client:
 
     async def getVehicles(self):
         vehicles = await self._connection.get(
-            f"https://api.ppa.porsche.com/app/connect/v1/vehicles"
+            f"/connect/v1/vehicles"
         )
         return vehicles
 
@@ -35,7 +33,7 @@ class Client:
         commands = "&cf=" + "&cf=".join(COMMANDS)
 
         data = await self._connection.get(
-            f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vin}?{measurements+commands}"
+            f"/connect/v1/vehicles/{vin}?{measurements+commands}"
         )
         return data
 
@@ -43,7 +41,7 @@ class Client:
         measurements = "mf=" + "&mf=".join(MEASUREMENTS)
 
         data = await self._connection.get(
-            f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vin}?{measurements}"
+            f"/connect/v1/vehicles/{vin}?{measurements}"
         )
         return data
 
@@ -53,7 +51,7 @@ class Client:
         wakeup = "&wakeUpJob=" + id
 
         data = await self._connection.get(
-            f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vin}?{measurements+wakeup}"
+            f"/connect/v1/vehicles/{vin}?{measurements+wakeup}"
         )
         return data
 
@@ -92,12 +90,13 @@ class Client:
             "key": "CHARGING_PROFILES_EDIT",
             "payload": {"list": chargingprofileslist},
         }
-        print(profile)
+        _LOGGER.debug(f"Updating charging profile for {vin}")
 
         result = await self._connection.post(
-            f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vin}/commands",
+            f"/connect/v1/vehicles/{vin}/commands",
             json=profile,
         )
 
-        print(result)
+        _LOGGER.debug(result)
+
         return result

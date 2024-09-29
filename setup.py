@@ -15,7 +15,7 @@ setup(
     license="MIT",
     packages=["pyporscheconnectapi"],
     python_requires=">=3.6",
-    install_requires=["aiohttp<4"],
+    install_requires=["httpx<1"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
