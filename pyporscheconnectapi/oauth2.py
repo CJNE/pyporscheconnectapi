@@ -74,17 +74,17 @@ class OAuth2Client:
         Ensure the access_token is valid, logging in or refreshing if necessary
         """
         token_is_expired = token.is_expired(self.leeway)
+        if token_is_expired:
+            token_data = await self.refresh_token(token.refresh_token)
+            token.update(token_data)
+            token.expires_at = token_data["expires_in"]
+            _LOGGER.debug(f"Refreshed Access Token: {token.access_token}")
         if token.access_token is None or token_is_expired is None:  # no token, get a new one
             auth_code = await self.fetch_authorization_code()
             token_data = await self.fetch_access_token(auth_code)
             token.update(token_data)
             token.expires_at = token_data["expires_in"]
             _LOGGER.debug(f"New Access Token: {token.access_token}")
-        elif token_is_expired:
-            token_data = await self.refresh_token(token.refresh_token)
-            token.update(token_data)
-            token.expires_at = token_data["expires_in"]
-            _LOGGER.debug(f"Refreshed Access Token: {token.access_token}")
 
     async def fetch_authorization_code(self):
         """
@@ -258,4 +258,9 @@ class OAuth2Client:
             token_data = resp.json()
             return token_data
         except httpx.HTTPStatusError as exception_:
+          # 403 usually means the refresh token is invalid
+          # clear the access token so the full login flow can happen again
+          if exception_.response.status_code == 403:
+            return {"access_token": None, "expires_in": 0}
+          else:
             raise PorscheException(exception_.response.status_code)
