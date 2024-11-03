@@ -57,7 +57,8 @@ class Connection:
                 base_url=API_BASE_URL,
                 headers={"User-Agent": USER_AGENT, "X-Client-ID": CLIENT_ID},
                 event_hooks={"request": [log_request]},
-                verify=False
+                verify=False,
+                timeout=TIMEOUT
             )
         elif isinstance(self.websession, httpx.AsyncClient):
             self.websession.base_url = API_BASE_URL
@@ -97,7 +98,7 @@ class Connection:
                 headers={"Authorization": f"Bearer {self.token.access_token}"},
                 **kwargs,
             )
-            resp.raise_for_status()
+            resp.raise_for_status()    # A common error seem to be: httpx.HTTPStatusError: Server error '504 Gateway Time-out'
             return resp.json()
         except httpx.HTTPStatusError as exception_:
             raise PorscheException(exception_.response.status_code)

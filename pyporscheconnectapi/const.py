@@ -11,6 +11,7 @@ SCOPE = "openid profile email offline_access mbb ssodb badge vin dealers cars ch
 API_BASE_URL = "https://api.ppa.porsche.com/app"
 AUTHORIZATION_URL = f"https://{AUTHORIZATION_SERVER}/authorize"
 TOKEN_URL = f"https://{AUTHORIZATION_SERVER}/oauth/token"
+TIMEOUT = 90
 
 """ Vehicle properties """
 

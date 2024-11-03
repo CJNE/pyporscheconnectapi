@@ -58,10 +58,9 @@ async def main(args):
             for vin in vins:
                 data = {}
                 if args.command == "overview":
-                    if args.nowait:
-                        data = await client.getStoredOverview(vin)
-                    else:
-                        data = await client.getCurrentOverview(vin)
+                    data = await client.getCurrentOverview(vin)
+                elif args.command == "storedoverview":
+                    data = await client.getStoredOverview(vin)
                 elif args.command == "chargingprofile":
                     data = await client.updateChargingProfile(
                         vin,
@@ -126,6 +125,9 @@ def cli():
 
     parser_command_overview = subparsers.add_parser("overview")
     add_arg_vin(parser_command_overview)
+
+    parser_command_storedoverview = subparsers.add_parser("storedoverview")
+    add_arg_vin(parser_command_storedoverview)
 
     parser_command_chargingprofile = subparsers.add_parser(
         "chargingprofile", help="Update parameters in configured charging profile"
