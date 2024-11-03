@@ -55,7 +55,7 @@ class Connection:
         if self.websession is None:
             self.websession = httpx.AsyncClient(
                 base_url=API_BASE_URL,
-                headers={"User-Agent": USER_AGENT, "X-Client-ID": CLIENT_ID},
+                headers={"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID},
                 event_hooks={"request": [log_request]},
                 verify=False,
                 timeout=TIMEOUT
