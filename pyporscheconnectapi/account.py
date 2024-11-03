@@ -42,7 +42,7 @@ class PorscheConnectAccount:
             _LOGGER.debug(f"Got vehicle {vehicle}")
             status = await client.getStoredOverview(vin=vehicle["vin"])
             _LOGGER.debug(f"Setting vehicle status {status}")
-            self.vehicles.append(PorscheVehicle(vin=vehicle["vin"], data=vehicle, status=status))
+            self.vehicles.append(PorscheVehicle(vin=vehicle["vin"], data=vehicle, status=status, connection=self.connection))
             
         self.token = self.connection.token                
 
