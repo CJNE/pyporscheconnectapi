@@ -130,9 +130,9 @@ class RemoteServices:
             else RemoteServiceStatus(result_code)
         )
 
-        if refresh:
+        if True:
             await asyncio.sleep(_POLLING_CYCLE * 2)
-            await self._account.get_vehicles()
+            await self._vehicle._update_data_for_vehicle()
 
         return status
 
