@@ -1,24 +1,47 @@
-
 from typing import Optional
 
 
 import logging
+import datetime
+import asyncio
+
+from enum import Enum
+
 _LOGGER = logging.getLogger(__name__)
 
+#: time in seconds between polling updates on the status of a remote service
+_POLLING_CYCLE = 3.5
 
-class ExecutionState():
+#: maximum number of seconds to wait for the server to return a positive answer
+_POLLING_TIMEOUT = 240
+
+
+class StrEnum(str, Enum):
+    """A string enumeration of type `(str, Enum)`. All members are compared via `upper()`. Defaults to UNKNOWN."""
+
+    @classmethod
+    def _missing_(cls, value):
+        has_unknown = False
+        for member in cls:
+            if member.value.upper() == "UNKNOWN":
+                has_unknown = True
+            if member.value.upper() == value.upper():
+                return member
+        if has_unknown:
+            _LOGGER.warning("'%s' is not a valid '%s'", value, cls.__name__)
+            return cls.UNKNOWN
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+
+class ExecutionState(StrEnum):
     """Enumeration of possible states of the execution of a remote service."""
 
-    INITIATED = "INITIATED"
-    PENDING = "PENDING"
-    DELIVERED = "DELIVERED"
-    EXECUTED = "EXECUTED"
+    PERFORMED = "PERFORMED"
     ERROR = "ERROR"
-    IGNORED = "IGNORED"
     UNKNOWN = "UNKNOWN"
 
 
-class Services():
+class Services:
     """Enumeration of possible services to be executed."""
 
     LIGHT_FLASH = "light-flash"
@@ -36,16 +59,15 @@ class Services():
 class RemoteServiceStatus:
     """Wraps the status of the execution of a remote service."""
 
-    def __init__(self, response: dict, event_id: Optional[str] = None):
+    def __init__(self, response: dict, status_id: Optional[str] = None):
         """Construct a new object from a dict."""
         status = None
-        if "eventStatus" in response:
-            status = response.get("eventStatus")
+        if "status" in response:
+            status = response.get("status", {}).get("result")
 
         self.state = ExecutionState(status or "UNKNOWN")
         self.details = response
-        self.event_id = event_id
-
+        self.status_id = status_id
 
 
 class RemoteServices:
@@ -77,23 +99,75 @@ class RemoteServices:
 
         return await self._updateChargingProfile(chargingprofileslist)
 
-
     async def _updateChargingProfile(
         self,
         chargingprofileslist,
     ):
-
         profile = {
             "key": "CHARGING_PROFILES_EDIT",
             "payload": {"list": chargingprofileslist},
         }
         _LOGGER.debug(f"Updating charging profile for {self._vehicle.vin}")
 
-        result = await self._connection.post(
+        response = await self._connection.post(
             f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
             json=profile,
         )
 
-        _LOGGER.debug(result)
+        if response:
+            status_id = response.get("status", {}).get("id")
+            result_code = response.get("status", {}).get("result")
+        else:
+            raise RemoteServiceError(
+                f"Did not receive response for remote service request"
+            )
 
-        return result
+        _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
+
+        status = (
+            await self._block_until_done(status_id)
+            if status_id and result_code == "ACCEPTED"
+            else RemoteServiceStatus(result_code)
+        )
+
+        if refresh:
+            await asyncio.sleep(_POLLING_CYCLE * 2)
+            await self._account.get_vehicles()
+
+        return status
+
+    async def _block_until_done(self, status_id: str) -> RemoteServiceStatus:
+        """Keep polling the server until we get a final answer.
+
+        :raises TimeoutError: if there is no final answer before _POLLING_TIMEOUT
+        """
+
+        fail_after = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            seconds=_POLLING_TIMEOUT
+        )
+        while datetime.datetime.now(datetime.timezone.utc) < fail_after:
+            await asyncio.sleep(_POLLING_CYCLE)
+            status = await self._get_remote_service_status(status_id)
+            _LOGGER.debug("Current state of '%s' is: %s", status_id, status.state.value)
+            if status.state == ExecutionState.ERROR:
+                raise PorscheRemoteServiceError(
+                    f"Remote service failed with state '{status.status.result}'"
+                )
+            if status.state not in [
+                ExecutionState.UNKNOWN,
+            ]:
+                return status
+        raise PorscheRemoteServiceError(
+            f"Did not receive remote service result for '{event_id}' in {_POLLING_TIMEOUT} seconds. "
+            f"Current state: {status.state.value}"
+        )
+
+    async def _get_remote_service_status(self, status_id: str) -> RemoteServiceStatus:
+        """Return execution status of the last remote service that was triggered."""
+
+        _LOGGER.debug("Getting remote service status for '%s'", status_id)
+        status_msg = await self._connection.get(
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands/{status_id}"
+        )
+        _LOGGER.debug("Got status message %s for '%s'", status_msg, status_id)
+        return RemoteServiceStatus(status_msg, status_id=status_id)
