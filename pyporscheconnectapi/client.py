@@ -23,9 +23,7 @@ class Client:
         return await self._connection.getToken()
 
     async def getVehicles(self):
-        vehicles = await self._connection.get(
-            f"/connect/v1/vehicles"
-        )
+        vehicles = await self._connection.get(f"/connect/v1/vehicles")
         return vehicles
 
     async def getCapabilities(self, vin):
@@ -40,9 +38,7 @@ class Client:
     async def getStoredOverview(self, vin):
         measurements = "mf=" + "&mf=".join(MEASUREMENTS)
 
-        data = await self._connection.get(
-            f"/connect/v1/vehicles/{vin}?{measurements}"
-        )
+        data = await self._connection.get(f"/connect/v1/vehicles/{vin}?{measurements}")
         return data
 
     async def getCurrentOverview(self, vin):
@@ -85,7 +81,6 @@ class Client:
         vin,
         chargingprofileslist,
     ):
-
         profile = {
             "key": "CHARGING_PROFILES_EDIT",
             "payload": {"list": chargingprofileslist},

@@ -16,6 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 Credentials = namedtuple("Credentials", ["email", "password"])
 
+
 class OAuth2Token(dict):
     """
     A simple wrapper around a dict to handle OAuth2 tokens. Provides a helper
@@ -58,13 +59,16 @@ class OAuth2Token(dict):
 
 class OAuth2Client:
     """
-      Utility class to handle OAuth2 authentication with Porsche Connect
-      
-      :param client: httpx.AsyncClient
-      :param credentials: tuple of email, password
-      :param leeway: time in seconds to consider token as expired before it actually expires
+    Utility class to handle OAuth2 authentication with Porsche Connect
+
+    :param client: httpx.AsyncClient
+    :param credentials: tuple of email, password
+    :param leeway: time in seconds to consider token as expired before it actually expires
     """
-    def __init__(self, client: httpx.AsyncClient, credentials: Credentials, leeway: int = 60):
+
+    def __init__(
+        self, client: httpx.AsyncClient, credentials: Credentials, leeway: int = 60
+    ):
         self.client = client
         self.credentials = credentials
         self.leeway = leeway
@@ -79,7 +83,9 @@ class OAuth2Client:
             token.update(token_data)
             token.expires_at = token_data["expires_in"]
             _LOGGER.debug(f"Refreshed Access Token: {token.access_token}")
-        if token.access_token is None or token_is_expired is None:  # no token, get a new one
+        if (
+            token.access_token is None or token_is_expired is None
+        ):  # no token, get a new one
             auth_code = await self.fetch_authorization_code()
             token_data = await self.fetch_access_token(auth_code)
             token.update(token_data)
@@ -124,7 +130,9 @@ class OAuth2Client:
             resume_path = await self.login_with_identifier(params["state"][0])
 
             # completed the Identifier First flow, now resume the auth code request
-            params = await self.get_and_extract_location_params(f"https://{AUTHORIZATION_SERVER}{resume_path}")
+            params = await self.get_and_extract_location_params(
+                f"https://{AUTHORIZATION_SERVER}{resume_path}"
+            )
             authorization_code = params.get("code", [None])[0]
             _LOGGER.debug(f"Authorization code: {authorization_code}")
 
@@ -258,9 +266,9 @@ class OAuth2Client:
             token_data = resp.json()
             return token_data
         except httpx.HTTPStatusError as exception_:
-          # 403 usually means the refresh token is invalid
-          # clear the access token so the full login flow can happen again
-          if exception_.response.status_code == 403:
-            return {"access_token": None, "expires_in": 0}
-          else:
-            raise PorscheException(exception_.response.status_code)
+            # 403 usually means the refresh token is invalid
+            # clear the access token so the full login flow can happen again
+            if exception_.response.status_code == 403:
+                return {"access_token": None, "expires_in": 0}
+            else:
+                raise PorscheException(exception_.response.status_code)

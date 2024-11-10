@@ -22,6 +22,7 @@ from .exceptions import PorscheException
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def log_request(request):
     _LOGGER.debug(f"Request headers: {request.headers}")
     _LOGGER.debug(f"Request method - url: {request.method} {request.url}")
@@ -58,7 +59,7 @@ class Connection:
                 headers={"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID},
                 event_hooks={"request": [log_request]},
                 verify=False,
-                timeout=TIMEOUT
+                timeout=TIMEOUT,
             )
         elif isinstance(self.websession, httpx.AsyncClient):
             self.websession.base_url = API_BASE_URL
@@ -69,7 +70,9 @@ class Connection:
         else:
             raise TypeError("websession must be an instance of httpx.AsyncClient")
 
-        self.oauth2_client = OAuth2Client(self.websession, Credentials(email, password), leeway)
+        self.oauth2_client = OAuth2Client(
+            self.websession, Credentials(email, password), leeway
+        )
 
     async def getToken(self):
         async with self.token_lock:
@@ -98,7 +101,7 @@ class Connection:
                 headers={"Authorization": f"Bearer {self.token.access_token}"},
                 **kwargs,
             )
-            resp.raise_for_status()    # A common error seem to be: httpx.HTTPStatusError: Server error '504 Gateway Time-out'
+            resp.raise_for_status()  # A common error seem to be: httpx.HTTPStatusError: Server error '504 Gateway Time-out'
             return resp.json()
         except httpx.HTTPStatusError as exception_:
             raise PorscheException(exception_.response.status_code)

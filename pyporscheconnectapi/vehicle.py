@@ -1,14 +1,6 @@
 from typing import Dict
 
 from pyporscheconnectapi.remote_services import RemoteServices
-#from pyporscheconnectapi.account import PorscheConnectAccount
-
-import json  # only for formatting debug output
-
-
-import logging
-_LOGGER = logging.getLogger(__name__)
-
 
 
 class PorscheVehicle:
@@ -19,7 +11,7 @@ class PorscheVehicle:
         vin: str = None,
         data: Dict = None,
         status: Dict = None,
-        connection: None = None
+        connection: None = None,
     ) -> None:
         self.connection = connection
         self.data = data
@@ -33,17 +25,13 @@ class PorscheVehicle:
 
     @property
     def has_electric_drivetrain(self) -> bool:
-        """Return True if vehicle is equipped with a high voltage battery.
-        """
-        return (self.data["modelType"]["engine"] == "BEV" or self.data["modelType"]["engine"] == "HEV")
+        """Return True if vehicle is equipped with a high voltage battery."""
+        return (
+            self.data["modelType"]["engine"] == "BEV"
+            or self.data["modelType"]["engine"] == "HEV"
+        )
 
     @property
     def charging_target(self) -> bool:
-        """Return target state of charge (SoC) for high voltage battery.
-        """
-        _LOGGER.debug(
-            "Dumping self.data: %s",
-            json.dumps(self.data, indent=2),
-        )
-
+        """Return target state of charge (SoC) for high voltage battery."""
         return self.data["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]

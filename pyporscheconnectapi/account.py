@@ -1,4 +1,3 @@
-
 from dataclasses import InitVar, dataclass, field
 
 from pyporscheconnectapi.connection import Connection
@@ -23,13 +22,12 @@ class PorscheConnectAccount:
 
     def __post_init__(self, password):
         """Initialize the account."""
-        
+
         if self.token is None:
             self.token = {}
-        
+
         if self.connection is None:
             self.connection = Connection(self.username, password, token=self.token)
-
 
     async def _init_vehicles(self) -> None:
         """Initialize vehicles from API endpoint."""
@@ -37,15 +35,21 @@ class PorscheConnectAccount:
         client = Client(self.connection)
 
         vehicle_list = await client.getVehicles()
-        
+
         for vehicle in vehicle_list:
             _LOGGER.debug(f"Got vehicle {vehicle}")
             status = await client.getStoredOverview(vin=vehicle["vin"])
             _LOGGER.debug(f"Setting vehicle status {status}")
-            self.vehicles.append(PorscheVehicle(vin=vehicle["vin"], data=vehicle, status=status, connection=self.connection))
-            
-        self.token = self.connection.token                
+            self.vehicles.append(
+                PorscheVehicle(
+                    vin=vehicle["vin"],
+                    data=vehicle,
+                    status=status,
+                    connection=self.connection,
+                )
+            )
 
+        self.token = self.connection.token
 
     async def get_vehicles(self, force_init: bool = False) -> None:
         """Retrieve vehicle data from API endpoints."""
@@ -56,4 +60,3 @@ class PorscheConnectAccount:
             await self._init_vehicles()
 
         return self.vehicles
-
