@@ -1,5 +1,6 @@
-from typing import Dict
+from typing import Dict, List
 import logging
+import re
 import json  # only for formatting debug output
 
 from pyporscheconnectapi.remote_services import RemoteServices
@@ -11,8 +12,10 @@ _LOGGER = logging.getLogger(__name__)
 BASE_DATA = ["vin", "modelName", "customName", "modelType", "systemInfo", "timestamp"]
 
 
+
 class PorscheVehicle:
     """Representation of a Porsche vehicle"""
+
 
     def __init__(
         self,
@@ -57,6 +60,20 @@ class PorscheVehicle:
             return active_charging_profile.get("minSoc")
         else:
             return None
+
+    @property
+    def location(self) -> List:
+        """Get the location of the vehicle."""
+
+        loc = self.data.get("GPS_LOCATION", {}).get("location")
+        heading = self.data.get("GPS_LOCATION", {}).get("direction")
+        if loc and re.match(r"[\.0-9]+,[\.0-9]+", loc):
+            lat, lon = loc.split(",")
+        else:
+            lat, lon = None, None
+
+        return(lat, lon, heading)
+
 
     async def _update_data_for_vehicle(self):
         vin = self.vin
