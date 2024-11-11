@@ -4,6 +4,7 @@ import json  # only for formatting debug output
 
 from pyporscheconnectapi.remote_services import RemoteServices
 from pyporscheconnectapi.client import Client
+from pyporscheconnectapi.exceptions import PorscheException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,6 +88,10 @@ class PorscheVehicle:
 
             bdata = dict((k, vdata[k]) for k in BASE_DATA)
 
+            bdata["name"] = (
+                bdata["customName"] if "customName" in bdata else bdata["modelName"]
+            )
+
             _LOGGER.debug(
                 "Got base data for vehicle '%s': %s",
                 vin,
@@ -124,9 +129,10 @@ class PorscheVehicle:
 
                 if "CHARGING_SUMMARY" in mdata:
                     # For some strange reason, the minSoC attribute if this does not react on changes, so we override it here in the meanwhile
-                    mdata["CHARGING_SUMMARY"]["chargingProfile"][
-                        "minSoC"
-                    ] = self.charging_target
+                    if mdata["CHARGING_SUMMARY"].get("chargingProfile"):
+                        mdata["CHARGING_SUMMARY"]["chargingProfile"][
+                            "minSoC"
+                        ] = self.charging_target
 
             else:
                 _LOGGER.debug("Measurement data missing for vehicle '%s", vin)
