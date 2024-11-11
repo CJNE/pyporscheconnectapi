@@ -3,6 +3,7 @@ import logging
 import json  # only for formatting debug output
 
 from pyporscheconnectapi.remote_services import RemoteServices
+from pyporscheconnectapi.client import Client
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,9 +63,12 @@ class PorscheVehicle:
         mdata = {}
         vdata = {}
 
+        client = Client(self.connection)
+
         try:
             _LOGGER.debug(f"Getting status for vehicle {self.vin}")
-            vdata = self.status
+            vdata = await client.getStoredOverview(vin=self.vin)
+            _LOGGER.debug(f"Setting vehicle status {vdata}")
         except PorscheException as err:
             _LOGGER.error(
                 "Could not get current overview, error communicating with API: '%s",
