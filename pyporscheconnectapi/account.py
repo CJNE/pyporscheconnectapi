@@ -39,12 +39,12 @@ class PorscheConnectAccount:
         for vehicle in vehicle_list:
             _LOGGER.debug(f"Got vehicle {vehicle}")
             v = PorscheVehicle(
-                    vin=vehicle["vin"],
-                    data=vehicle,
-                    status={},
-                    connection=self.connection,
-                )
-            await v._update_data_for_vehicle() 
+                vin=vehicle["vin"],
+                data=vehicle,
+                status={},
+                connection=self.connection,
+            )
+            await v._update_data_for_vehicle()
             self.vehicles.append(v)
 
         self.token = self.connection.token

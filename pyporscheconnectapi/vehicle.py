@@ -12,10 +12,8 @@ _LOGGER = logging.getLogger(__name__)
 BASE_DATA = ["vin", "modelName", "customName", "modelType", "systemInfo", "timestamp"]
 
 
-
 class PorscheVehicle:
     """Representation of a Porsche vehicle"""
-
 
     def __init__(
         self,
@@ -40,6 +38,31 @@ class PorscheVehicle:
         return (
             self.data["modelType"]["engine"] == "BEV"
             or self.data["modelType"]["engine"] == "HEV"
+        )
+
+    @property
+    def has_remote_climatisation(self) -> bool:
+        """Return True if vehicle has remote climatisation ability."""
+        return self.data.__contains__("CLIMATIZER_STATE")
+
+    @property
+    def has_direct_charge(self) -> bool:
+        """Return True if vehicle has direct charge ability."""
+        return self.data.get("BATTERY_CHARGING_STATE").__contains__(
+            "directChargingState"
+        )
+
+    @property
+    def is_remote_climatise_on(self) -> bool:
+        """Return True if remote climatisation is on."""
+        return self.data.get("CLIMATIZER_STATE", {}).get("isOn")
+
+    @property
+    def is_direct_charge_on(self) -> bool:
+        """Return True if direct charging is enabled."""
+        return (
+            self.data.get("BATTERY_CHARGING_STATE", {}).get("directChargingState")
+            == "ENABLED_ON"
         )
 
     @property
@@ -72,8 +95,7 @@ class PorscheVehicle:
         else:
             lat, lon = None, None
 
-        return(lat, lon, heading)
-
+        return (lat, lon, heading)
 
     async def _update_data_for_vehicle(self):
         vin = self.vin

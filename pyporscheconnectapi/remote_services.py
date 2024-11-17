@@ -77,6 +77,158 @@ class RemoteServices:
         self._vehicle = vehicle
         self._connection = vehicle.connection
 
+    async def climatise_on(
+        self,
+        targetTemperature: float = 293.15,
+        frontLeft: bool = False,
+        frontRight: bool = False,
+        rearLeft: bool = False,
+        rearRight: bool = False,
+    ):
+        _LOGGER.debug(f"Starting remote climatisation for {self._vehicle.vin}")
+
+        payload = {
+            "key": "REMOTE_CLIMATIZER_START",
+            "payload": {
+                "climateZonesEnabled": {
+                    "frontLeft": frontLeft,
+                    "frontRight": frontRight,
+                    "rearLeft": rearLeft,
+                    "rearRight": rearRight,
+                },
+                "targetTemperature": targetTemperature,
+            },
+        }
+
+        response = await self._connection.post(
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
+            json=payload,
+        )
+
+        if response:
+            status_id = response.get("status", {}).get("id")
+            result_code = response.get("status", {}).get("result")
+        else:
+            raise RemoteServiceError(
+                f"Did not receive response for remote service request"
+            )
+
+        _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
+
+        status = (
+            await self._block_until_done(status_id)
+            if status_id and result_code == "ACCEPTED"
+            else RemoteServiceStatus(result_code)
+        )
+
+        if True:
+            await asyncio.sleep(_POLLING_CYCLE * 2)
+            await self._vehicle._update_data_for_vehicle()
+
+        return status
+
+    async def climatise_off(
+        self,
+    ):
+        _LOGGER.debug(f"Stopping remote climatisation for {self._vehicle.vin}")
+
+        payload = {"key": "REMOTE_CLIMATIZER_STOP", "payload": {}}
+
+        response = await self._connection.post(
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
+            json=payload,
+        )
+
+        if response:
+            status_id = response.get("status", {}).get("id")
+            result_code = response.get("status", {}).get("result")
+        else:
+            raise RemoteServiceError(
+                f"Did not receive response for remote service request"
+            )
+
+        _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
+
+        status = (
+            await self._block_until_done(status_id)
+            if status_id and result_code == "ACCEPTED"
+            else RemoteServiceStatus(result_code)
+        )
+
+        if True:
+            await asyncio.sleep(_POLLING_CYCLE * 2)
+            await self._vehicle._update_data_for_vehicle()
+
+        return status
+
+    async def direct_charge_on(
+        self,
+    ):
+        _LOGGER.debug(f"Enabling direct charging for {self._vehicle.vin}")
+
+        payload = {"key": "DIRECT_CHARGING_START", "payload": {"spin": None}}
+
+        response = await self._connection.post(
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
+            json=payload,
+        )
+
+        if response:
+            status_id = response.get("status", {}).get("id")
+            result_code = response.get("status", {}).get("result")
+        else:
+            raise RemoteServiceError(
+                f"Did not receive response for remote service request"
+            )
+
+        _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
+
+        status = (
+            await self._block_until_done(status_id)
+            if status_id and result_code == "ACCEPTED"
+            else RemoteServiceStatus(result_code)
+        )
+
+        if True:
+            await asyncio.sleep(_POLLING_CYCLE * 2)
+            await self._vehicle._update_data_for_vehicle()
+
+        return status
+
+    async def direct_charge_off(
+        self,
+    ):
+        _LOGGER.debug(f"Disabling direct charging for {self._vehicle.vin}")
+
+        payload = {"key": "DIRECT_CHARGING_STOP", "payload": {"spin": None}}
+
+        response = await self._connection.post(
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
+            json=payload,
+        )
+
+        if response:
+            status_id = response.get("status", {}).get("id")
+            result_code = response.get("status", {}).get("result")
+        else:
+            raise RemoteServiceError(
+                f"Did not receive response for remote service request"
+            )
+
+        _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
+
+        status = (
+            await self._block_until_done(status_id)
+            if status_id and result_code == "ACCEPTED"
+            else RemoteServiceStatus(result_code)
+        )
+
+        if True:
+            await asyncio.sleep(_POLLING_CYCLE * 2)
+            await self._vehicle._update_data_for_vehicle()
+
+        return status
+
     async def updateChargingProfile(
         self,
         profileId: int = None,
