@@ -167,11 +167,13 @@ class PorscheVehicle:
                         mdata["BATTERY_CHARGING_STATE"]["chargingPower"] = 0
 
                 if "CHARGING_SUMMARY" in mdata:
-                    # For some strange reason, the minSoC attribute if this does not react on changes, so we override it here in the meanwhile
-                    if mdata["CHARGING_SUMMARY"].get("chargingProfile"):
-                        mdata["CHARGING_SUMMARY"]["chargingProfile"][
-                            "minSoC"
-                        ] = self.charging_target
+                    # For some strange reason, the minSoC attribute in this dict does not react on changes, so we create a shadow of it which we update as required and use that for the sensor instead
+                    if mdata["CHARGING_SUMMARY"].get("mode") == "DIRECT":
+                        minsoc = 100
+                    elif mdata["CHARGING_SUMMARY"].get("chargingProfile"):
+                        minsoc = self.charging_target
+
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = minsoc
 
             else:
                 _LOGGER.debug("Measurement data missing for vehicle '%s", vin)
