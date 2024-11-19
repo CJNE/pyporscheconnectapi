@@ -33,11 +33,24 @@ class PorscheVehicle:
         return self.data["vin"]
 
     @property
+    def has_porsche_connect(self) -> bool:
+        """Should return true if porsche connect subscription is active. Todo."""
+        return True
+
+    @property
     def has_electric_drivetrain(self) -> bool:
         """Return True if vehicle is equipped with a high voltage battery."""
         return (
             self.data["modelType"]["engine"] == "BEV"
-            or self.data["modelType"]["engine"] == "HEV"
+            or self.data["modelType"]["engine"] == "PHEV"
+        )
+
+    @property
+    def has_ice_drivetrain(self) -> bool:
+        """Return True if vehicle has an internal combustion engine."""
+        return (
+            self.data["modelType"]["engine"] == "PHEV"
+            or self.data["modelType"]["engine"] == "COMBUSTION"
         )
 
     @property
