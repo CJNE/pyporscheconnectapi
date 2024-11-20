@@ -65,11 +65,9 @@ async def main(args):
                 vehicle = await controller.get_vehicle(vin)
                 if vehicle is not None:
                     if args.command == "overview":
-                        await vehicle._update_data_for_vehicle(True)
-                        data = vehicle.data
+                        data = await vehicle.get_current_overview()
                     elif args.command == "storedoverview":
-                        await vehicle._update_data_for_vehicle(False)
-                        data = vehicle.data
+                        data = await vehicle.get_stored_overview()
                     elif args.command == "chargingprofile":
                         service = RemoteServices(vehicle)
                         data = await service.updateChargingProfile(
@@ -77,7 +75,7 @@ async def main(args):
                             minimumChargeLevel=args.minimumchargelevel,
                         )
                     elif args.command == "capabilities":
-                        data = await vehicle.capabilities()
+                        data = await vehicle.get_capabilities()
                     print(json.dumps(data, indent=2))
 
     except WrongCredentials as e:
