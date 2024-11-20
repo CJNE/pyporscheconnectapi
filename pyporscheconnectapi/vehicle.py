@@ -38,6 +38,11 @@ class PorscheVehicle:
         return True
 
     @property
+    def has_remote_services(self) -> bool:
+        """Return true if remote services are available."""
+        return self.data.get("REMOTE_ACCESS_AUTHORIZATION", {}).get("isEnabled") == True
+
+    @property
     def has_electric_drivetrain(self) -> bool:
         """Return True if vehicle is equipped with a high voltage battery."""
         return (

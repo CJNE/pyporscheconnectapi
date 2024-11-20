@@ -41,21 +41,6 @@ class ExecutionState(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
-class Services:
-    """Enumeration of possible services to be executed."""
-
-    LIGHT_FLASH = "light-flash"
-    VEHICLE_FINDER = "vehicle-finder"
-    DOOR_LOCK = "door-lock"
-    DOOR_UNLOCK = "door-unlock"
-    HORN = "horn-blow"
-    AIR_CONDITIONING = "climate-now"
-    CHARGE_START = "start-charging"
-    CHARGE_STOP = "stop-charging"
-    CHARGING_SETTINGS = "CHARGING_SETTINGS"
-    CHARGING_PROFILE = "CHARGING_PROFILE"
-
-
 class RemoteServiceStatus:
     """Wraps the status of the execution of a remote service."""
 
