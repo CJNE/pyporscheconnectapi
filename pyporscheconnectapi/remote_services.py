@@ -193,7 +193,7 @@ class RemoteServices:
         self,
         chargingprofileslist,
     ):
-        profile = {
+        payload = {
             "key": "CHARGING_PROFILES_EDIT",
             "payload": {"list": chargingprofileslist},
         }
