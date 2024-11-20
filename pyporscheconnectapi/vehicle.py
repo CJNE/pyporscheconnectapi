@@ -2,10 +2,13 @@ from typing import Dict, List
 import logging
 import re
 import json  # only for formatting debug output
+import uuid
 
 from pyporscheconnectapi.remote_services import RemoteServices
-from pyporscheconnectapi.client import Client
+from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import PorscheException
+
+from .const import MEASUREMENTS, COMMANDS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +23,7 @@ class PorscheVehicle:
         vin: str = None,
         data: Dict = None,
         status: Dict = None,
-        connection: None = None,
+        connection: Connection = None,
     ) -> None:
         self.connection = connection
         self.data = data
@@ -115,17 +118,35 @@ class PorscheVehicle:
 
         return (lat, lon, heading)
 
+    async def get_stored_overview(self):
+        measurements = "mf=" + "&mf=".join(MEASUREMENTS)
+
+        data = await self.connection.get(
+            f"/connect/v1/vehicles/{self.vin}?{measurements}"
+        )
+        return data
+
+    async def get_current_overview(self):
+        measurements = "mf=" + "&mf=".join(MEASUREMENTS)
+        id = str(uuid.uuid4())
+        wakeup = "&wakeUpJob=" + id
+
+        data = await self.connection.get(
+            f"/connect/v1/vehicles/{self.vin}?{measurements+wakeup}"
+        )
+        return data
+
     async def _update_data_for_vehicle(self):
         vin = self.vin
         bdata = {}
         mdata = {}
         vdata = {}
 
-        client = Client(self.connection)
+        # client = Client(self.connection)
 
         try:
             _LOGGER.debug(f"Getting status for vehicle {self.vin}")
-            vdata = await client.getStoredOverview(vin=self.vin)
+            vdata = await self.get_stored_overview()
             _LOGGER.debug(f"Setting vehicle status {vdata}")
         except PorscheException as err:
             _LOGGER.error(
