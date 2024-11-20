@@ -2,8 +2,9 @@ import argparse
 import asyncio
 import configparser
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.client import Client
 from pyporscheconnectapi.exceptions import WrongCredentials
+from pyporscheconnectapi.account import PorscheConnectAccount
+from pyporscheconnectapi.remote_services import RemoteServices
 import os
 import sys
 import logging
@@ -11,7 +12,10 @@ import json
 from getpass import getpass
 
 try:
-    from rich import print
+    from rich.console import Console
+
+    console = Console()
+    print = console.print
 except ImportError:
     pass
 
@@ -35,48 +39,53 @@ async def main(args):
 
     email = args.email or input("Please enter Porsche Connect email: ")
     password = args.password or getpass()
-    conn = Connection(email, password, token=token)
 
-    client = Client(conn)
+    connection = Connection(email, password, token=token)
+    controller = PorscheConnectAccount(connection=connection)
 
     try:
         if args.command == "list":
-            data = await client.getVehicles()
-            print(json.dumps(data, indent=2))
+            vehicles = await controller.get_vehicles()
+            for vehicle in vehicles:
+                print(vehicle)
         elif args.command == "token":
-            data = await client.getToken()
+            data = controller.token
             print(json.dumps(data, indent=2))
         else:
             vins = []
             if args.vin is not None:
                 vins = [args.vin]
             elif args.all:
-                vehicles = await client.getVehicles()
-                vins = map(lambda v: v["vin"], vehicles)
+                vehicles = await controller.get_vehicles()
+                vins = map(lambda v: v.vin, vehicles)
             else:
                 sys.exit("--vin or --all is required")
             for vin in vins:
                 data = {}
-                if args.command == "overview":
-                    data = await client.getCurrentOverview(vin)
-                elif args.command == "storedoverview":
-                    data = await client.getStoredOverview(vin)
-                elif args.command == "chargingprofile":
-                    data = await client.updateChargingProfile(
-                        vin,
-                        profileId=args.profileid,
-                        minimumChargeLevel=args.minimumchargelevel,
-                    )
-                elif args.command == "capabilities":
-                    data = await client.getCapabilities(vin)
-                print(json.dumps(data, indent=2))
+                vehicle = await controller.get_vehicle(vin)
+                if vehicle is not None:
+                    if args.command == "overview":
+                        await vehicle._update_data_for_vehicle(True)
+                        data = vehicle.data
+                    elif args.command == "storedoverview":
+                        await vehicle._update_data_for_vehicle(False)
+                        data = vehicle.data
+                    elif args.command == "chargingprofile":
+                        service = RemoteServices(vehicle)
+                        data = await service.updateChargingProfile(
+                            profileId=args.profileid,
+                            minimumChargeLevel=args.minimumchargelevel,
+                        )
+                    elif args.command == "capabilities":
+                        data = await vehicle.capabilities()
+                    print(json.dumps(data, indent=2))
 
     except WrongCredentials as e:
         sys.exit(e.message)
 
-    await conn.close()
+    await connection.close()
     with open(args.session_file, "w", encoding="utf-8") as json_file:
-        json.dump(conn.token, json_file, ensure_ascii=False, indent=2)
+        json.dump(connection.token, json_file, ensure_ascii=False, indent=2)
 
 
 def add_arg_vin(parser):
@@ -118,7 +127,8 @@ def cli():
 
     parser.add_argument("--nowait", dest="nowait", action="store_true")
 
-    parser_command_list = subparsers.add_parser("list")
+    subparsers.add_parser("list")
+    subparsers.add_parser("token")
 
     parser_command_capabilities = subparsers.add_parser("capabilities")
     add_arg_vin(parser_command_capabilities)

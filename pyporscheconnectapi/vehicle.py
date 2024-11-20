@@ -3,9 +3,10 @@ import logging
 import re
 import json  # only for formatting debug output
 import uuid
+from typing import Optional
 
-from pyporscheconnectapi.remote_services import RemoteServices
 from pyporscheconnectapi.connection import Connection
+from pyporscheconnectapi.remote_services import RemoteServices
 from pyporscheconnectapi.exceptions import PorscheException
 
 from .const import MEASUREMENTS, COMMANDS
@@ -14,26 +15,28 @@ _LOGGER = logging.getLogger(__name__)
 
 BASE_DATA = ["vin", "modelName", "customName", "modelType", "systemInfo", "timestamp"]
 
-
 class PorscheVehicle:
     """Representation of a Porsche vehicle"""
 
     def __init__(
         self,
-        vin: str = None,
-        data: Dict = None,
-        status: Dict = None,
-        connection: Connection = None,
+        connection: Connection,
+        vin: Optional[str] = None,
+        data: Dict = {},
+        status: Dict = {},
     ) -> None:
         self.connection = connection
         self.data = data
         self.remote_services = RemoteServices(self)
         self.status = status
 
+    def get_data(self) -> Dict:
+        return self.data
+
     @property
     def vin(self) -> str:
         """Get the VIN (vehicle identification number) of the vehicle."""
-        return self.data["vin"]
+        return self.data.get("vin", "not available")
 
     @property
     def has_porsche_connect(self) -> bool:
@@ -69,7 +72,7 @@ class PorscheVehicle:
     @property
     def has_direct_charge(self) -> bool:
         """Return True if vehicle has direct charge ability."""
-        return self.data.get("BATTERY_CHARGING_STATE").__contains__(
+        return self.data.get("BATTERY_CHARGING_STATE", "").__contains__(
             "directChargingState"
         )
 
@@ -87,7 +90,7 @@ class PorscheVehicle:
         )
 
     @property
-    def charging_target(self) -> bool:
+    def charging_target(self) -> Optional[bool]:
         """Return target state of charge (SoC) for high voltage battery."""
 
         if self.data.get("CHARGING_PROFILES"):
@@ -101,12 +104,12 @@ class PorscheVehicle:
                 None,
             )
             _LOGGER.debug(f"Active charging profile is: {active_charging_profile}")
-            return active_charging_profile.get("minSoc")
-        else:
-            return None
+            if(active_charging_profile is not None):
+                return active_charging_profile.get("minSoc")
+        return None
 
     @property
-    def location(self) -> List:
+    def location(self) -> tuple[Optional[int], Optional[int], Optional[int]]:
         """Get the location of the vehicle."""
 
         loc = self.data.get("GPS_LOCATION", {}).get("location")
@@ -135,6 +138,18 @@ class PorscheVehicle:
             f"/connect/v1/vehicles/{self.vin}?{measurements+wakeup}"
         )
         return data
+
+    async def get_capabilities(self):
+        measurements = "mf=" + "&mf=".join(MEASUREMENTS)
+        commands = "&cf=" + "&cf=".join(COMMANDS)
+
+        data = await self.connection.get(
+            f"/connect/v1/vehicles/{self.vin}?{measurements+commands}"
+        )
+        return data
+
+    def __repr__(self):
+        return f"Vehicle({self.vin!r}, drivetrain={self.data.get('modelType', {}).get('engine')!r}, has_porsche_connect={self.has_porsche_connect!r})"
 
     async def _update_data_for_vehicle(self):
         vin = self.vin
@@ -178,7 +193,7 @@ class PorscheVehicle:
 
             if "measurements" in vdata:
                 tdata = [
-                    m for m in vdata["measurements"] if m["status"]["isEnabled"] == True
+                    m for m in vdata["measurements"] if m["status"]["isEnabled"]
                 ]
 
                 for m in tdata:
@@ -211,6 +226,10 @@ class PorscheVehicle:
                         minsoc = 100
                     elif mdata["CHARGING_SUMMARY"].get("chargingProfile"):
                         minsoc = self.charging_target
+                    else:
+                        _LOGGER.debug("Unable to find minSoC for vehicle '%s", vin)
+                        # What should it fall back to?
+                        minsoc = 80
 
                     mdata["CHARGING_SUMMARY"]["minSoC"] = minsoc
 

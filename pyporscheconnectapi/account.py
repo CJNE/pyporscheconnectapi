@@ -6,50 +6,49 @@ from pyporscheconnectapi.vehicle import PorscheVehicle
 
 import logging
 
-from typing import List, Dict
+from typing import List, Optional
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
 class PorscheConnectAccount:
-    username: str
-    password: InitVar[str]
-    token: Dict = None
-    connection: Connection = None
-    vehicles: List[PorscheVehicle] = field(default_factory=list, init=False)
-
-    def __post_init__(self, password):
-        """Initialize the account."""
-
-        if self.token is None:
-            self.token = {}
-
-        if self.connection is None:
-            self.connection = Connection(self.username, password, token=self.token)
+    def __init__(
+        self,
+        username="",
+        password="",
+        token={},
+        connection: Optional[Connection] = None,
+    ):
+        self.vehicles: List[PorscheVehicle] = []
+        self.token = token
+        if connection is None:
+            self.connection = Connection(username, password, token=token)
+        else:
+            self.connection = connection
 
     async def _init_vehicles(self) -> None:
         """Initialize vehicles from API endpoint."""
         _LOGGER.debug("Building vehicle list")
-        client = Client(self.connection)
+        if self.connection is not None:
+            client = Client(self.connection)
 
-        vehicle_list = await client.getVehicles()
+            vehicle_list = await client.getVehicles()
 
-        for vehicle in vehicle_list:
-            _LOGGER.debug(f"Got vehicle {vehicle}")
-            v = PorscheVehicle(
-                vin=vehicle["vin"],
-                data=vehicle,
-                status={},
-                connection=self.connection,
-            )
-            await v._update_data_for_vehicle()
-            self.vehicles.append(v)
+            for vehicle in vehicle_list:
+                _LOGGER.debug(f"Got vehicle {vehicle}")
+                v = PorscheVehicle(
+                    vin=vehicle["vin"],
+                    data=vehicle,
+                    status={},
+                    connection=self.connection,
+                )
+                # await v._update_data_for_vehicle()
+                self.vehicles.append(v)
 
-        self.token = self.connection.token
+            self.token = self.connection.token
 
-    async def get_vehicles(self, force_init: bool = False) -> None:
+    async def get_vehicles(self, force_init: bool = False) -> List[PorscheVehicle]:
         """Retrieve vehicle data from API endpoints."""
 
         _LOGGER.debug("Retrieving vehicle list")
@@ -58,3 +57,11 @@ class PorscheConnectAccount:
             await self._init_vehicles()
 
         return self.vehicles
+
+    async def get_vehicle(self, vin: str) -> Optional[PorscheVehicle]:
+        if len(self.vehicles) == 0:
+            await self._init_vehicles()
+        filtered = [v for v in self.vehicles if v.vin == vin]
+        if len(filtered) > 0:
+            return filtered[0]
+        return None

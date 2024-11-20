@@ -9,7 +9,18 @@ from collections import namedtuple
 
 from typing import Dict, Text
 
-from .const import *
+from .const import (
+    AUTHORIZATION_SERVER,
+    AUTHORIZATION_URL,
+    CLIENT_ID,
+    REDIRECT_URI,
+    AUDIENCE,
+    SCOPE,
+    TOKEN_URL,
+    TIMEOUT,
+    USER_AGENT,
+    X_CLIENT_ID,
+)
 from .exceptions import CaptchaRequired, WrongCredentials, PorscheException
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +83,7 @@ class OAuth2Client:
         self.client = client
         self.credentials = credentials
         self.leeway = leeway
+        self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
 
     async def ensure_valid_token(self, token: OAuth2Token):
         """
@@ -149,7 +161,9 @@ class OAuth2Client:
         :param params: dict of query parameters
         :return: dict of query parameters from the Location header
         """
-        resp = await self.client.get(url, params=params)
+        resp = await self.client.get(
+            url, params=params, timeout=TIMEOUT, headers=self.headers
+        )
         location = resp.headers["Location"]
         return self._extract_params_from_url(location)
 
@@ -187,7 +201,13 @@ class OAuth2Client:
         }
 
         url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
-        resp = await self.client.post(url, data=data, params={"state": state})
+        resp = await self.client.post(
+            url,
+            data=data,
+            params={"state": state},
+            timeout=TIMEOUT,
+            headers=self.headers,
+        )
 
         if resp.status_code == 401:
             message = resp.json()
@@ -197,7 +217,7 @@ class OAuth2Client:
 
         # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
         if resp.status_code == 400:
-            html_body = resp.text()
+            html_body = resp.text
             _LOGGER.debug(html_body)
             raise CaptchaRequired("Captcha required")
 
@@ -210,7 +230,13 @@ class OAuth2Client:
         }
 
         url = f"https://{AUTHORIZATION_SERVER}/u/login/password"
-        resp = await self.client.post(url, data=data, params={"state": state})
+        resp = await self.client.post(
+            url,
+            data=data,
+            params={"state": state},
+            timeout=TIMEOUT,
+            headers=self.headers,
+        )
 
         if resp.status_code == 401:
             message = resp.json()
@@ -241,7 +267,9 @@ class OAuth2Client:
         }
 
         try:
-            resp = await self.client.post(TOKEN_URL, data=data)
+            resp = await self.client.post(
+                TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers
+            )
             resp.raise_for_status()
             token_data = resp.json()
             return token_data
@@ -261,7 +289,9 @@ class OAuth2Client:
             "refresh_token": refresh_token,
         }
         try:
-            resp = await self.client.post(TOKEN_URL, data=data)
+            resp = await self.client.post(
+                TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers
+            )
             resp.raise_for_status()
             token_data = resp.json()
             return token_data
