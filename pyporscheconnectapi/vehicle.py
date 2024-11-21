@@ -93,6 +93,11 @@ class PorscheVehicle:
         )
 
     @property
+    def is_vehicle_locked(self) -> bool:
+        """Return True if vehicle is locked."""
+        return self.data.get("LOCK_STATE_VEHICLE", {}).get("isLocked") == True
+
+    @property
     def charging_target(self) -> Optional[bool]:
         """Return target state of charge (SoC) for high voltage battery."""
 

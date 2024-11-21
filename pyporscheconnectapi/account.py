@@ -31,7 +31,6 @@ class PorscheConnectAccount:
         _LOGGER.debug("Building vehicle list")
 
         if self.connection is not None:
-
             vehicle_list = await self.connection.get("/connect/v1/vehicles")
 
             for vehicle in vehicle_list:

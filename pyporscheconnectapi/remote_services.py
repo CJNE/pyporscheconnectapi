@@ -6,6 +6,7 @@ import datetime
 import asyncio
 from .exceptions import RemoteServiceError
 
+from hashlib import sha512
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -158,6 +159,35 @@ class RemoteServices:
         result = await self._send_command(payload)
         return result
 
+    async def lock_vehicle(
+        self,
+    ):
+        _LOGGER.debug(f"Locking vehicle {self._vehicle.vin}")
+
+        payload = {"key": "LOCK", "payload": {"spin": None}}
+
+        result = await self._send_command(payload)
+        return result
+
+    async def unlock_vehicle(
+        self,
+        pin,
+    ):
+        _LOGGER.debug(f"Unlocking vehicle {self._vehicle.vin}")
+
+        challenge = await self._get_challenge()
+
+        if challenge:
+            pinhash = sha512(bytes.fromhex(pin + challenge)).hexdigest().upper()
+
+            payload = {
+                "key": "UNLOCK",
+                "payload": {"spin": {"challenge": challenge, "hash": pinhash}},
+            }
+
+            result = await self._send_command(payload)
+            return result
+
     async def updateChargingProfile(
         self,
         profileId: Optional[int] = None,
@@ -179,6 +209,20 @@ class RemoteServices:
                     chargingprofileslist[i] = item
 
         return await self._updateChargingProfile(chargingprofileslist)
+
+    async def _get_challenge(
+        self,
+    ):
+        payload = {"key": "SPIN_CHALLENGE", "payload": {"spin": None}}
+
+        _LOGGER.debug(f"Requesting challenge for {self._vehicle.vin}")
+
+        response = await self._connection.post(
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
+            json=payload,
+        )
+
+        return response.get("data", {}).get("challenge")
 
     async def _updateChargingProfile(
         self,
@@ -222,7 +266,7 @@ class RemoteServices:
 
         if True:
             await asyncio.sleep(_POLLING_DELAY)
-            await self._vehicle._update_data_for_vehicle()
+            await self._vehicle.get_stored_overview()
 
         return status
 
