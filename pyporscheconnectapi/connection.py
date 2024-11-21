@@ -3,20 +3,16 @@
 Python Package for controlling Porsche Connect API.
 
 """
+
 import logging
 import asyncio
 from typing import Text
 
 import httpx
 from .oauth2 import OAuth2Token, OAuth2Client, Credentials
-from .const import *
+from .const import API_BASE_URL, TIMEOUT, USER_AGENT, X_CLIENT_ID, CLIENT_ID
 
-from typing import Any, Dict
-
-try:
-    from rich import print
-except ImportError:
-    pass
+from typing import Optional
 
 from .exceptions import PorscheException
 
@@ -35,43 +31,44 @@ class Connection:
 
     :param email: Porsche Connect email
     :param password: Porsche Connect password
-    :param websession: httpx.AsyncClient or None
+    :param asyncClient: httpx.AsyncClient or None
     :param token: token dict - should be a dict with access_token, refresh_token, expires_at, etc as root params
     :param leeway: time in seconds to consider token as expired before it actually expires
     """
 
     def __init__(
         self,
-        email: Text = None,
-        password: Text = None,
-        websession: httpx.AsyncClient = None,
-        token=None,
+        email: Optional[Text] = None,
+        password: Optional[Text] = None,
+        asyncClient=httpx.AsyncClient(),
+        token={},
         leeway: int = 60,
     ) -> None:
-        self.websession = websession
+        self.asyncClient = asyncClient
         self.token_lock = asyncio.Lock()
 
         self.token = OAuth2Token(token)
 
-        if self.websession is None:
-            self.websession = httpx.AsyncClient(
-                base_url=API_BASE_URL,
-                headers={"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID},
-                event_hooks={"request": [log_request]},
-                verify=False,
-                timeout=TIMEOUT,
-            )
-        elif isinstance(self.websession, httpx.AsyncClient):
-            self.websession.base_url = API_BASE_URL
-            self.websession.headers.update(
-                {"User-Agent": USER_AGENT, "X-Client-ID": CLIENT_ID}
-            )
-            self.websession.event_hooks["request"] = [log_request]
-        else:
-            raise TypeError("websession must be an instance of httpx.AsyncClient")
+        self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
+        # if self.asyncClient is None:
+        #     self.asyncClient = httpx.AsyncClient(
+        #         base_url=API_BASE_URL,
+        #         headers={"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID},
+        #         event_hooks={"request": [log_request]},
+        #         verify=False,
+        #         timeout=TIMEOUT,
+        #     )
+        # elif isinstance(self.asyncClient, httpx.AsyncClient):
+        #     self.asyncClient.base_url = API_BASE_URL
+        #     self.asyncClient.headers.update(
+        #         {"User-Agent": USER_AGENT, "X-Client-ID": CLIENT_ID}
+        #     )
+        #     self.asyncClient.event_hooks["request"] = [log_request]
+        # else:
+        #     raise TypeError("asyncClient must be an instance of httpx.AsyncClient")
 
         self.oauth2_client = OAuth2Client(
-            self.websession, Credentials(email, password), leeway
+            self.asyncClient, Credentials(email, password), leeway
         )
 
     async def getToken(self):
@@ -95,10 +92,12 @@ class Connection:
         try:
             async with self.token_lock:
                 await self.oauth2_client.ensure_valid_token(self.token)
-            resp = await self.websession.request(
+            resp = await self.asyncClient.request(
                 method,
-                url,
-                headers={"Authorization": f"Bearer {self.token.access_token}"},
+                f"{API_BASE_URL}/{url}",
+                headers=self.headers
+                | {"Authorization": f"Bearer {self.token.access_token}"},
+                timeout=TIMEOUT,
                 **kwargs,
             )
             resp.raise_for_status()  # A common error seem to be: httpx.HTTPStatusError: Server error '504 Gateway Time-out'
@@ -107,5 +106,5 @@ class Connection:
             raise PorscheException(exception_.response.status_code)
 
     async def close(self):
-        """Close the websession connection"""
-        await self.websession.aclose()
+        """Close the asyncClient connection"""
+        await self.asyncClient.aclose()

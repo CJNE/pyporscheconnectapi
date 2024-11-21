@@ -4,8 +4,12 @@ from typing import Optional
 import logging
 import datetime
 import asyncio
+from .exceptions import RemoteServiceError
 
 from enum import Enum
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .vehicle import PorscheVehicle
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +54,7 @@ class RemoteServiceStatus:
         if "status" in response:
             status = response.get("status", {}).get("result")
 
+        self.status = status
         self.state = ExecutionState(status or "UNKNOWN")
         self.details = response
         self.status_id = status_id
@@ -58,7 +63,7 @@ class RemoteServiceStatus:
 class RemoteServices:
     """Trigger remote services on a vehicle."""
 
-    def __init__(self, vehicle: "PorscheVehicle"):
+    def __init__(self, vehicle: 'PorscheVehicle'):
         self._vehicle = vehicle
         self._connection = vehicle.connection
 
@@ -154,8 +159,8 @@ class RemoteServices:
 
     async def updateChargingProfile(
         self,
-        profileId: int = None,
-        minimumChargeLevel: int = None,
+        profileId: Optional[int] = None,
+        minimumChargeLevel: Optional[int] = None,
     ):
         chargingprofileslist = self._vehicle.data["CHARGING_PROFILES"]["list"]
         _LOGGER.debug(f"Charging profile list: {chargingprofileslist}")
@@ -203,7 +208,7 @@ class RemoteServices:
             result_code = response.get("status", {}).get("result")
         else:
             raise RemoteServiceError(
-                f"Did not receive response for remote service request"
+               "Did not receive response for remote service request"
             )
 
         _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
@@ -229,21 +234,25 @@ class RemoteServices:
         fail_after = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
             seconds=_POLLING_TIMEOUT
         )
+        status = None
         while datetime.datetime.now(datetime.timezone.utc) < fail_after:
             await asyncio.sleep(_POLLING_DELAY)
             status = await self._get_remote_service_status(status_id)
             _LOGGER.debug("Current state of '%s' is: %s", status_id, status.state.value)
             if status.state == ExecutionState.ERROR:
-                raise PorscheRemoteServiceError(
-                    f"Remote service failed with state '{status.status.result}'"
+                raise RemoteServiceError(
+                    f"Remote service failed with state '{status.details}'"
                 )
             if status.state not in [
                 ExecutionState.UNKNOWN,
             ]:
                 return status
-        raise PorscheRemoteServiceError(
-            f"Did not receive remote service result for '{event_id}' in {_POLLING_TIMEOUT} seconds. "
-            f"Current state: {status.state.value}"
+        current_state = 'Unknown'
+        if status is not None:
+            current_state = status.state.value
+        raise RemoteServiceError(
+            f"Did not receive remote service result for '{status_id}' in {_POLLING_TIMEOUT} seconds. "
+            f"Current state: {current_state}"
         )
 
     async def _get_remote_service_status(self, status_id: str) -> RemoteServiceStatus:

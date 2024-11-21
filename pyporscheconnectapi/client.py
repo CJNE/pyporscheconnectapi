@@ -1,6 +1,8 @@
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import WrongCredentials
 from hashlib import sha512
+from typing import Optional
+
 
 import logging
 import uuid
@@ -13,17 +15,14 @@ _LOGGER = logging.getLogger(__name__)
 class Client:
     """Client for Porsche Connect API."""
 
-    def __init__(
-        self,
-        connection: Connection,
-    ) -> None:
+    def __init__(self, connection: Connection) -> None:
         self._connection = connection
 
     async def getToken(self):
         return await self._connection.getToken()
 
     async def getVehicles(self):
-        vehicles = await self._connection.get(f"/connect/v1/vehicles")
+        vehicles = await self._connection.get("/connect/v1/vehicles")
         return vehicles
 
     async def getCapabilities(self, vin):
@@ -51,47 +50,47 @@ class Client:
         )
         return data
 
-    async def updateChargingProfile(
-        self,
-        vin,
-        profileId: int,
-        minimumChargeLevel: int = None,
-    ):
-        measurements = (await self.getStoredOverview(vin))["measurements"]
-        chargingprofiles = (
-            [e for e in measurements if e["key"] == "CHARGING_PROFILES"]
-        )[0]["value"]
-        chargingprofileslist = chargingprofiles["list"]
+    # async def updateChargingProfile(
+    #     self,
+    #     vin,
+    #     profileId: int,
+    #     minimumChargeLevel: Optional[int] = None,
+    # ):
+    #     measurements = (await self.getStoredOverview(vin))["measurements"]
+    #     chargingprofiles = (
+    #         [e for e in measurements if e["key"] == "CHARGING_PROFILES"]
+    #     )[0]["value"]
+    #     chargingprofileslist = chargingprofiles["list"]
+    #
+    #     if profileId is None:
+    #         profileId = chargingprofiles["activeProfileId"]
+    #
+    #     if minimumChargeLevel is not None:
+    #         minimumChargeLevel = min(max(int(minimumChargeLevel), 25), 100)
+    #         chargingprofileslist
+    #         for i, item in enumerate(chargingprofileslist):
+    #             if profileId == item["id"]:
+    #                 item["minSoc"] = minimumChargeLevel
+    #                 chargingprofileslist[i] = item
+    #
+    #     return await self._updateChargingProfile(vin, chargingprofileslist)
 
-        if profileId is None:
-            profileId = chargingprofiles["activeProfileId"]
-
-        if minimumChargeLevel is not None:
-            minimumChargeLevel = min(max(int(minimumChargeLevel), 25), 100)
-            chargingprofileslist
-            for i, item in enumerate(chargingprofileslist):
-                if profileId == item["id"]:
-                    item["minSoc"] = minimumChargeLevel
-                    chargingprofileslist[i] = item
-
-        return await self._updateChargingProfile(vin, chargingprofileslist)
-
-    async def _updateChargingProfile(
-        self,
-        vin,
-        chargingprofileslist,
-    ):
-        profile = {
-            "key": "CHARGING_PROFILES_EDIT",
-            "payload": {"list": chargingprofileslist},
-        }
-        _LOGGER.debug(f"Updating charging profile for {vin}")
-
-        result = await self._connection.post(
-            f"/connect/v1/vehicles/{vin}/commands",
-            json=profile,
-        )
-
-        _LOGGER.debug(result)
-
-        return result
+    # async def _updateChargingProfile(
+    #     self,
+    #     vin,
+    #     chargingprofileslist,
+    # ):
+    #     profile = {
+    #         "key": "CHARGING_PROFILES_EDIT",
+    #         "payload": {"list": chargingprofileslist},
+    #     }
+    #     _LOGGER.debug(f"Updating charging profile for {vin}")
+    #
+    #     result = await self._connection.post(
+    #         f"/connect/v1/vehicles/{vin}/commands",
+    #         json=profile,
+    #     )
+    #
+    #     _LOGGER.debug(result)
+    #
+    #     return result
