@@ -1,7 +1,6 @@
 from dataclasses import InitVar, dataclass, field
 
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.client import Client
 from pyporscheconnectapi.vehicle import PorscheVehicle
 
 import logging
@@ -30,10 +29,10 @@ class PorscheConnectAccount:
     async def _init_vehicles(self) -> None:
         """Initialize vehicles from API endpoint."""
         _LOGGER.debug("Building vehicle list")
-        if self.connection is not None:
-            client = Client(self.connection)
 
-            vehicle_list = await client.getVehicles()
+        if self.connection is not None:
+
+            vehicle_list = await self.connection.get("/connect/v1/vehicles")
 
             for vehicle in vehicle_list:
                 _LOGGER.debug(f"Got vehicle {vehicle}")
