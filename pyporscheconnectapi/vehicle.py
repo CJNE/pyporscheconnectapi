@@ -15,6 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 
 BASE_DATA = ["vin", "modelName", "customName", "modelType", "systemInfo", "timestamp"]
 
+
 class PorscheVehicle:
     """Representation of a Porsche vehicle"""
 
@@ -24,11 +25,13 @@ class PorscheVehicle:
         vin: Optional[str] = None,
         data: Dict = {},
         status: Dict = {},
+        capabilities: Dict = {},
     ) -> None:
         self.connection = connection
         self.data = data
         self.remote_services = RemoteServices(self)
         self.status = status
+        self.capabilities = capabilities
 
     def get_data(self) -> Dict:
         return self.data
@@ -104,7 +107,7 @@ class PorscheVehicle:
                 None,
             )
             _LOGGER.debug(f"Active charging profile is: {active_charging_profile}")
-            if(active_charging_profile is not None):
+            if active_charging_profile is not None:
                 return active_charging_profile.get("minSoc")
         return None
 
@@ -124,62 +127,69 @@ class PorscheVehicle:
     async def get_stored_overview(self):
         measurements = "mf=" + "&mf=".join(MEASUREMENTS)
 
-        data = await self.connection.get(
-            f"/connect/v1/vehicles/{self.vin}?{measurements}"
-        )
-        return data
+        try:
+            _LOGGER.debug(f"Getting stored status for vehicle {self.vin}")
+            self.status = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}?{measurements}"
+            )
+            self._update_vehicle_data()
+        except PorscheException as err:
+            _LOGGER.error(
+                "Could not get stored overview, error communicating with API: '%s",
+                err.message,
+            )
 
     async def get_current_overview(self):
         measurements = "mf=" + "&mf=".join(MEASUREMENTS)
         id = str(uuid.uuid4())
         wakeup = "&wakeUpJob=" + id
 
-        data = await self.connection.get(
-            f"/connect/v1/vehicles/{self.vin}?{measurements+wakeup}"
-        )
-        return data
-
-    async def get_capabilities(self):
-        measurements = "mf=" + "&mf=".join(MEASUREMENTS)
-        commands = "&cf=" + "&cf=".join(COMMANDS)
-
-        data = await self.connection.get(
-            f"/connect/v1/vehicles/{self.vin}?{measurements+commands}"
-        )
-        return data
-
-    def __repr__(self):
-        return f"Vehicle({self.vin!r}, drivetrain={self.data.get('modelType', {}).get('engine')!r}, has_porsche_connect={self.has_porsche_connect!r})"
-
-    async def _update_data_for_vehicle(self):
-        vin = self.vin
-        bdata = {}
-        mdata = {}
-        vdata = {}
-
-        # client = Client(self.connection)
-
         try:
-            _LOGGER.debug(f"Getting status for vehicle {self.vin}")
-            vdata = await self.get_stored_overview()
-            _LOGGER.debug(f"Setting vehicle status {vdata}")
+            _LOGGER.debug(f"Getting current status for vehicle {self.vin}")
+            self.status = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}?{measurements+wakeup}"
+            )
+            self._update_vehicle_data()
         except PorscheException as err:
             _LOGGER.error(
                 "Could not get current overview, error communicating with API: '%s",
                 err.message,
             )
 
-        if "vin" in vdata:
-            _LOGGER.debug(
-                "Vehicle data dict for %s is now: %s",
-                vin,
-                json.dumps(vdata, indent=2),
+    async def get_capabilities(self):
+        measurements = "mf=" + "&mf=".join(MEASUREMENTS)
+        commands = "&cf=" + "&cf=".join(COMMANDS)
+
+        try:
+            _LOGGER.debug(f"Getting capabilities for vehicle {self.vin}")
+            self.capabilities = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}?{measurements+commands}"
+            )
+        except PorscheException as err:
+            _LOGGER.error(
+                "Could not get capabilities, error communicating with API: '%s",
+                err.message,
             )
 
-            if "customName" not in vdata:
-                vdata["customName"] = ""
+    def __repr__(self):
+        return f"Vehicle({self.vin!r}, drivetrain={self.data.get('modelType', {}).get('engine')!r}, has_porsche_connect={self.has_porsche_connect!r})"
 
-            bdata = dict((k, vdata[k]) for k in BASE_DATA)
+    def _update_vehicle_data(self):
+        vin = self.vin
+        bdata = {}
+        mdata = {}
+
+        if "vin" in self.status:
+            _LOGGER.debug(
+                "Vehicle status dict for %s is now: %s",
+                vin,
+                json.dumps(self.status, indent=2),
+            )
+
+            if "customName" not in self.status:
+                self.status["customName"] = ""
+
+            bdata = dict((k, self.status[k]) for k in BASE_DATA)
 
             bdata["name"] = (
                 bdata["customName"] if "customName" in bdata else bdata["modelName"]
@@ -191,9 +201,9 @@ class PorscheVehicle:
                 json.dumps(bdata, indent=2),
             )
 
-            if "measurements" in vdata:
+            if "measurements" in self.status:
                 tdata = [
-                    m for m in vdata["measurements"] if m["status"]["isEnabled"]
+                    m for m in self.status["measurements"] if m["status"]["isEnabled"]
                 ]
 
                 for m in tdata:
@@ -237,14 +247,14 @@ class PorscheVehicle:
                 _LOGGER.debug("Measurement data missing for vehicle '%s", vin)
                 _LOGGER.debug(
                     "Payload for current overview query was: %s",
-                    json.dumps(vdata, indent=2),
+                    json.dumps(self.status, indent=2),
                 )
 
         else:
             _LOGGER.debug("Base data missing for vehicle '%s", vin)
             _LOGGER.debug(
                 "Payload for current overview query was: %s",
-                json.dumps(vdata, indent=2),
+                json.dumps(self.status, indent=2),
             )
 
         self.data = self.data | bdata | mdata

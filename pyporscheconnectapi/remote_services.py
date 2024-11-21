@@ -8,6 +8,7 @@ from .exceptions import RemoteServiceError
 
 from enum import Enum
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .vehicle import PorscheVehicle
 
@@ -63,7 +64,7 @@ class RemoteServiceStatus:
 class RemoteServices:
     """Trigger remote services on a vehicle."""
 
-    def __init__(self, vehicle: 'PorscheVehicle'):
+    def __init__(self, vehicle: "PorscheVehicle"):
         self._vehicle = vehicle
         self._connection = vehicle.connection
 
@@ -208,7 +209,7 @@ class RemoteServices:
             result_code = response.get("status", {}).get("result")
         else:
             raise RemoteServiceError(
-               "Did not receive response for remote service request"
+                "Did not receive response for remote service request"
             )
 
         _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
@@ -247,7 +248,7 @@ class RemoteServices:
                 ExecutionState.UNKNOWN,
             ]:
                 return status
-        current_state = 'Unknown'
+        current_state = "Unknown"
         if status is not None:
             current_state = status.state.value
         raise RemoteServiceError(

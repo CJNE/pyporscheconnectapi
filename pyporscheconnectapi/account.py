@@ -43,7 +43,7 @@ class PorscheConnectAccount:
                     status={},
                     connection=self.connection,
                 )
-                # await v._update_data_for_vehicle()
+                await v.get_stored_overview()
                 self.vehicles.append(v)
 
             self.token = self.connection.token
