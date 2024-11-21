@@ -21,7 +21,11 @@ from .const import (
     USER_AGENT,
     X_CLIENT_ID,
 )
-from .exceptions import CaptchaRequired, WrongCredentials, PorscheException
+from .exceptions import (
+    PorscheCaptchaRequired,
+    PorscheWrongCredentials,
+    PorscheException,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -211,7 +215,7 @@ class OAuth2Client:
 
         if resp.status_code == 401:
             message = resp.json()
-            raise WrongCredentials(
+            raise PorscheWrongCredentials(
                 message.get("message", message.get("description", "Unknown error"))
             )
 
@@ -219,7 +223,7 @@ class OAuth2Client:
         if resp.status_code == 400:
             html_body = resp.text
             _LOGGER.debug(html_body)
-            raise CaptchaRequired("Captcha required")
+            raise PorscheCaptchaRequired("Captcha required")
 
         # 2. /u/login/password w/ password
         data = {
@@ -240,7 +244,7 @@ class OAuth2Client:
 
         if resp.status_code == 401:
             message = resp.json()
-            raise WrongCredentials(
+            raise PorscheWrongCredentials(
                 message.get("message", message.get("description", "Unknown error"))
             )
 

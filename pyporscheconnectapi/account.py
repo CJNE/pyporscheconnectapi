@@ -1,5 +1,3 @@
-from dataclasses import InitVar, dataclass, field
-
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.vehicle import PorscheVehicle
 

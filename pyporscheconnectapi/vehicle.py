@@ -80,12 +80,7 @@ class PorscheVehicle:
         )
 
     @property
-    def is_remote_climatise_on(self) -> bool:
-        """Return True if remote climatisation is on."""
-        return self.data.get("CLIMATIZER_STATE", {}).get("isOn")
-
-    @property
-    def is_direct_charge_on(self) -> bool:
+    def direct_charge_on(self) -> bool:
         """Return True if direct charging is enabled."""
         return (
             self.data.get("BATTERY_CHARGING_STATE", {}).get("directChargingState")
@@ -93,7 +88,17 @@ class PorscheVehicle:
         )
 
     @property
-    def is_vehicle_locked(self) -> bool:
+    def privacy_mode(self) -> bool:
+        """Return True if privacy mode is on."""
+        return self.data.get("GLOBAL_PRIVACY_MODE", {}).get("isEnabled")
+
+    @property
+    def remote_climatise_on(self) -> bool:
+        """Return True if remote climatisation is on."""
+        return self.data.get("CLIMATIZER_STATE", {}).get("isOn")
+
+    @property
+    def vehicle_locked(self) -> bool:
         """Return True if vehicle is locked."""
         return self.data.get("LOCK_STATE_VEHICLE", {}).get("isLocked") == True
 

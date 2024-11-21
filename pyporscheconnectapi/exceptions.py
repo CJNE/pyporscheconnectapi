@@ -44,19 +44,19 @@ class PorscheException(Exception):
                 self.message = f"UNKNOWN_ERROR_{self.code}"
 
 
-class WrongCredentials(PorscheException):
+class PorscheWrongCredentials(PorscheException):
     """Class of exceptions for incomplete credentials."""
 
     pass
 
 
-class CaptchaRequired(PorscheException):
+class PorscheCaptchaRequired(PorscheException):
     """Class of exception when captcha verification is required."""
 
     pass
 
 
-class RemoteServiceError(PorscheException):
+class PorscheRemoteServiceError(PorscheException):
     """Error when executing remote services."""
 
     pass

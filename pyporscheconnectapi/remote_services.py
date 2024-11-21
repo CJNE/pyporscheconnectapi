@@ -1,10 +1,9 @@
 from typing import Optional
 
-
 import logging
 import datetime
 import asyncio
-from .exceptions import RemoteServiceError
+from .exceptions import PorscheRemoteServiceError
 
 from hashlib import sha512
 from enum import Enum
@@ -252,7 +251,7 @@ class RemoteServices:
             status_id = response.get("status", {}).get("id")
             result_code = response.get("status", {}).get("result")
         else:
-            raise RemoteServiceError(
+            raise PorscheRemoteServiceError(
                 "Did not receive response for remote service request"
             )
 
@@ -264,9 +263,8 @@ class RemoteServices:
             else RemoteServiceStatus(result_code)
         )
 
-        if True:
-            await asyncio.sleep(_POLLING_DELAY)
-            await self._vehicle.get_stored_overview()
+        await asyncio.sleep(_POLLING_DELAY)
+        await self._vehicle.get_stored_overview()
 
         return status
 
@@ -285,7 +283,7 @@ class RemoteServices:
             status = await self._get_remote_service_status(status_id)
             _LOGGER.debug("Current state of '%s' is: %s", status_id, status.state.value)
             if status.state == ExecutionState.ERROR:
-                raise RemoteServiceError(
+                raise PorscheRemoteServiceError(
                     f"Remote service failed with state '{status.details}'"
                 )
             if status.state not in [
@@ -295,7 +293,7 @@ class RemoteServices:
         current_state = "Unknown"
         if status is not None:
             current_state = status.state.value
-        raise RemoteServiceError(
+        raise PorscheRemoteServiceError(
             f"Did not receive remote service result for '{status_id}' in {_POLLING_TIMEOUT} seconds. "
             f"Current state: {current_state}"
         )

@@ -50,28 +50,12 @@ class Connection:
         self.token = OAuth2Token(token)
 
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
-        # if self.asyncClient is None:
-        #     self.asyncClient = httpx.AsyncClient(
-        #         base_url=API_BASE_URL,
-        #         headers={"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID},
-        #         event_hooks={"request": [log_request]},
-        #         verify=False,
-        #         timeout=TIMEOUT,
-        #     )
-        # elif isinstance(self.asyncClient, httpx.AsyncClient):
-        #     self.asyncClient.base_url = API_BASE_URL
-        #     self.asyncClient.headers.update(
-        #         {"User-Agent": USER_AGENT, "X-Client-ID": CLIENT_ID}
-        #     )
-        #     self.asyncClient.event_hooks["request"] = [log_request]
-        # else:
-        #     raise TypeError("asyncClient must be an instance of httpx.AsyncClient")
 
         self.oauth2_client = OAuth2Client(
             self.asyncClient, Credentials(email, password), leeway
         )
 
-    async def getToken(self):
+    async def get_token(self):
         async with self.token_lock:
             await self.oauth2_client.ensure_valid_token(self.token)
         return self.token
