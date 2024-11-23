@@ -202,9 +202,11 @@ class PorscheVehicle:
     async def get_picture_locations(self):
         try:
             _LOGGER.debug(f"Getting picture urls for vehicle {self.vin}")
-            self.trip_statistics = await self.connection.get(
+            resp = await self.connection.get(
                 f"/connect/v1/vehicles/{self.vin}/pictures"
             )
+            for p in resp:
+                self.picture_locations[p["view"]] = p["url"]
         except PorscheException as err:
             _LOGGER.error(
                 "Could not get capabilities, error communicating with API: '%s",

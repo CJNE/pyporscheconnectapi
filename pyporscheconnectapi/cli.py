@@ -97,7 +97,7 @@ async def main(args):
                         print(json.dumps(vehicle.trip_statistics, indent=2))
                     elif args.command == "pictures":
                         await vehicle.get_picture_locations()
-                        print(json.dumps(vehicle.trip_statistics, indent=2))
+                        print(json.dumps(vehicle.picture_locations, indent=2))
                     elif args.command == "location":
                         await vehicle.get_stored_overview()
                         print(json.dumps(vehicle.location, indent=2))
