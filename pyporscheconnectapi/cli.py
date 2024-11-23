@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import configparser
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.exceptions import WrongCredentials
+from pyporscheconnectapi.exceptions import PorscheWrongCredentials
 from pyporscheconnectapi.account import PorscheConnectAccount
 from pyporscheconnectapi.remote_services import RemoteServices
 import os
@@ -10,6 +10,8 @@ import sys
 import logging
 import json
 from getpass import getpass
+
+vehicle_commands = ["capabilities", "currentoverview", "storedoverview"]
 
 try:
     from rich.console import Console
@@ -48,6 +50,7 @@ async def main(args):
             vehicles = await controller.get_vehicles()
             for vehicle in vehicles:
                 print(vehicle)
+                print(json.dumps(vehicle.data, indent=2))
         elif args.command == "token":
             data = controller.token
             print(json.dumps(data, indent=2))
@@ -64,21 +67,23 @@ async def main(args):
                 data = {}
                 vehicle = await controller.get_vehicle(vin)
                 if vehicle is not None:
-                    if args.command == "overview":
-                        data = await vehicle.get_current_overview()
+                    if args.command == "currentoverview":
+                        await vehicle.get_current_overview()
+                        print(json.dumps(vehicle.data, indent=2))
                     elif args.command == "storedoverview":
-                        data = await vehicle.get_stored_overview()
+                        await vehicle.get_stored_overview()
+                        print(json.dumps(vehicle.data, indent=2))
                     elif args.command == "chargingprofile":
                         service = RemoteServices(vehicle)
-                        data = await service.updateChargingProfile(
+                        await service.updateChargingProfile(
                             profileId=args.profileid,
                             minimumChargeLevel=args.minimumchargelevel,
                         )
                     elif args.command == "capabilities":
                         data = await vehicle.get_capabilities()
-                    print(json.dumps(data, indent=2))
+                        print(json.dumps(vehicle.capabilities, indent=2))
 
-    except WrongCredentials as e:
+    except PorscheWrongCredentials as e:
         sys.exit(e.message)
 
     await connection.close()
@@ -92,10 +97,6 @@ def add_arg_vin(parser):
     )
     group.add_argument("-v", "--vin", dest="vin", default=None)
     group.add_argument("-a", "--all", dest="all", action="store_true")
-
-
-def add_arg_model(parser):
-    parser.add_argument("-m", "--model", dest="model", default=None)
 
 
 def cli():
@@ -128,14 +129,8 @@ def cli():
     subparsers.add_parser("list")
     subparsers.add_parser("token")
 
-    parser_command_capabilities = subparsers.add_parser("capabilities")
-    add_arg_vin(parser_command_capabilities)
-
-    parser_command_overview = subparsers.add_parser("overview")
-    add_arg_vin(parser_command_overview)
-
-    parser_command_storedoverview = subparsers.add_parser("storedoverview")
-    add_arg_vin(parser_command_storedoverview)
+    for vc in vehicle_commands:
+        add_arg_vin(subparsers.add_parser(vc))
 
     parser_command_chargingprofile = subparsers.add_parser(
         "chargingprofile", help="Update parameters in configured charging profile"
@@ -163,5 +158,8 @@ def cli():
 
     args = parser.parse_args()
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(args))
+    if args.command:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main(args))
+    else:
+        parser.print_help(sys.stderr)
