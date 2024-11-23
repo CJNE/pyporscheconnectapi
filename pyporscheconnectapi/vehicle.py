@@ -107,6 +107,19 @@ class PorscheVehicle:
         return self.data.get("LOCK_STATE_VEHICLE", {}).get("isLocked") == True
 
     @property
+    def vehicle_closed(self) -> bool:
+        """Return True if all doors and lids are closed."""
+        return not bool(
+            sum(
+                [
+                    self.data[key]["isOpen"]
+                    for key in self.data
+                    if key.startswith("OPEN_STATE_")
+                ]
+            )
+        )
+
+    @property
     def charging_target(self) -> Optional[bool]:
         """Return target state of charge (SoC) for high voltage battery."""
 
