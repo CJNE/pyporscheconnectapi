@@ -120,6 +120,16 @@ class PorscheVehicle:
         )
 
     @property
+    def doors_and_lids(self) -> bool:
+        """Return list of all doors and lids and their status."""
+        dl = [
+            {key: "Open" if self.data[key]["isOpen"] == True else "Closed"}
+            for key in self.data
+            if key.startswith("OPEN_STATE_")
+        ]
+        return dict(map(dict.popitem, dl))
+
+    @property
     def charging_target(self) -> Optional[bool]:
         """Return target state of charge (SoC) for high voltage battery."""
 

@@ -27,6 +27,7 @@ vehicle_commands = {
     "lock_vehicle": "Lock vehicle",
     "unlock_vehicle": "Unlock vehicle",
     "vehicle_closed": "Check if all doors and lids are closed",
+    "doors_and_lids": "List status of all doors and lids",
     "chargingprofile": "Update parameters in configured charging profile",
 }
 
@@ -105,6 +106,9 @@ async def main(args):
                     elif args.command == "vehicle_closed":
                         await vehicle.get_stored_overview()
                         print(vehicle.vehicle_closed)
+                    elif args.command == "doors_and_lids":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.doors_and_lids)
                     elif args.command == "climatise_on":
                         service = RemoteServices(vehicle)
                         result = await service.climatise_on()
