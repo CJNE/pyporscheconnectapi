@@ -9,7 +9,7 @@ from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.remote_services import RemoteServices
 from pyporscheconnectapi.exceptions import PorscheException
 
-from .const import MEASUREMENTS, COMMANDS
+from .const import MEASUREMENTS, COMMANDS, TRIP_STATISTICS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,12 +26,16 @@ class PorscheVehicle:
         data: Dict = {},
         status: Dict = {},
         capabilities: Dict = {},
+        trip_statistics: Dict = {},
+        picture_locations: Dict = {},
     ) -> None:
         self.connection = connection
         self.data = data
         self.remote_services = RemoteServices(self)
         self.status = status
         self.capabilities = capabilities
+        self.trip_statistics = trip_statistics
+        self.picture_locations = picture_locations
 
     def get_data(self) -> Dict:
         return self.data
@@ -174,6 +178,32 @@ class PorscheVehicle:
             _LOGGER.debug(f"Getting capabilities for vehicle {self.vin}")
             self.capabilities = await self.connection.get(
                 f"/connect/v1/vehicles/{self.vin}?{measurements+commands}"
+            )
+        except PorscheException as err:
+            _LOGGER.error(
+                "Could not get capabilities, error communicating with API: '%s",
+                err.message,
+            )
+
+    async def get_trip_statistics(self):
+        measurements = "mf=" + "&mf=".join(TRIP_STATISTICS)
+
+        try:
+            _LOGGER.debug(f"Getting trip statistics for vehicle {self.vin}")
+            self.trip_statistics = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}?{measurements}"
+            )
+        except PorscheException as err:
+            _LOGGER.error(
+                "Could not get capabilities, error communicating with API: '%s",
+                err.message,
+            )
+
+    async def get_picture_locations(self):
+        try:
+            _LOGGER.debug(f"Getting picture urls for vehicle {self.vin}")
+            self.trip_statistics = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}/pictures"
             )
         except PorscheException as err:
             _LOGGER.error(

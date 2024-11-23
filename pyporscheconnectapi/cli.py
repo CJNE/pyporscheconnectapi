@@ -11,7 +11,23 @@ import logging
 import json
 from getpass import getpass
 
-vehicle_commands = ["capabilities", "currentoverview", "storedoverview"]
+vehicle_commands = {
+    "capabilities": "Get vehicle capabilities",
+    "currentoverview": "Get stored overview for vehicle",
+    "storedoverview": "Poll vehicle for current overview",
+    "trip_statistics": "Get trip statistics from backend",
+    "pictures": "Get vehicle pictures url",
+    "location": "Show location of vehicle",
+    "climatise_on": "Start remote climatisation",
+    "climatise_off": "Stop remote climatisation",
+    "direct_charge_on": "Enable direct charging",
+    "direct_charge_off": "Disable direct charging",
+    "flash_indicators": "Flash indicators",
+    "honk_and_flash": "Flash indicators and sound the horn",
+    "lock_vehicle": "Lock vehicle",
+    "unlock_vehicle": "Unlock vehicle",
+    "chargingprofile": "Update parameters in configured charging profile",
+}
 
 try:
     from rich.console import Console
@@ -67,21 +83,64 @@ async def main(args):
                 data = {}
                 vehicle = await controller.get_vehicle(vin)
                 if vehicle is not None:
-                    if args.command == "currentoverview":
+                    if args.command == "capabilities":
+                        data = await vehicle.get_capabilities()
+                        print(json.dumps(vehicle.capabilities, indent=2))
+                    elif args.command == "currentoverview":
                         await vehicle.get_current_overview()
                         print(json.dumps(vehicle.data, indent=2))
                     elif args.command == "storedoverview":
                         await vehicle.get_stored_overview()
                         print(json.dumps(vehicle.data, indent=2))
-                    elif args.command == "chargingprofile":
+                    elif args.command == "trip_statistics":
+                        await vehicle.get_trip_statistics()
+                        print(json.dumps(vehicle.trip_statistics, indent=2))
+                    elif args.command == "pictures":
+                        await vehicle.get_picture_locations()
+                        print(json.dumps(vehicle.trip_statistics, indent=2))
+                    elif args.command == "location":
+                        await vehicle.get_stored_overview()
+                        print(json.dumps(vehicle.location, indent=2))
+                    elif args.command == "climatise_on":
                         service = RemoteServices(vehicle)
-                        await service.updateChargingProfile(
+                        result = await service.climatise_on()
+                        print(result.status)
+                    elif args.command == "climatise_off":
+                        service = RemoteServices(vehicle)
+                        result = await service.climatise_off()
+                        print(result.status)
+                    elif args.command == "direct_charge_on":
+                        service = RemoteServices(vehicle)
+                        result = await service.direct_charge_on()
+                        print(result.status)
+                    elif args.command == "direct_charge_off":
+                        service = RemoteServices(vehicle)
+                        result = await service.direct_charge_off()
+                        print(result.status)
+                    elif args.command == "flash_indicators":
+                        service = RemoteServices(vehicle)
+                        result = await service.flash_indicators()
+                        print(result.status)
+                    elif args.command == "honk_and_flash":
+                        service = RemoteServices(vehicle)
+                        result = await service.honk_and_flash_indicators()
+                        print(result.status)
+                    elif args.command == "lock_vehicle":
+                        service = RemoteServices(vehicle)
+                        result = await service.lock_vehicle()
+                        print(result.status)
+                    elif args.command == "unlock_vehicle":
+                        service = RemoteServices(vehicle)
+                        result = await service.unlock_vehicle(args.pin)
+                        print(result.status)
+                    elif args.command == "chargingprofile":
+                        await vehicle.get_stored_overview()
+                        service = RemoteServices(vehicle)
+                        result = await service.updateChargingProfile(
                             profileId=args.profileid,
                             minimumChargeLevel=args.minimumchargelevel,
                         )
-                    elif args.command == "capabilities":
-                        data = await vehicle.get_capabilities()
-                        print(json.dumps(vehicle.capabilities, indent=2))
+                        print(result.status)
 
     except PorscheWrongCredentials as e:
         sys.exit(e.message)
@@ -130,31 +189,36 @@ def cli():
     subparsers.add_parser("token")
 
     for vc in vehicle_commands:
-        add_arg_vin(subparsers.add_parser(vc))
-
-    parser_command_chargingprofile = subparsers.add_parser(
-        "chargingprofile", help="Update parameters in configured charging profile"
-    )
-    add_arg_vin(parser_command_chargingprofile)
-    parser_command_chargingprofile.add_argument(
-        "--profileid", dest="profileid", type=int, required=False, help="Profile id"
-    )
-    parser_command_chargingprofile.add_argument(
-        "--chargelevel",
-        dest="minimumchargelevel",
-        type=int,
-        required=False,
-        default=None,
-        help="Minimun charge level",
-    )
-    parser_command_chargingprofile.add_argument(
-        "--profileactive",
-        dest="profileactive",
-        type=bool,
-        required=False,
-        default=None,
-        help="Profile active status",
-    )
+        parser_command = subparsers.add_parser(vc, help=vehicle_commands[vc])
+        add_arg_vin(parser_command)
+        if vc == "unlock_vehicle":
+            parser_command.add_argument(
+                "-n", "--pin", required=True, dest="pin", default=None
+            )
+        if vc == "chargingprofile":
+            parser_command.add_argument(
+                "--profileid",
+                dest="profileid",
+                type=int,
+                required=False,
+                help="Profile id",
+            )
+            parser_command.add_argument(
+                "--chargelevel",
+                dest="minimumchargelevel",
+                type=int,
+                required=False,
+                default=None,
+                help="Minimum charge level",
+            )
+            parser_command.add_argument(
+                "--profileactive",
+                dest="profileactive",
+                type=bool,
+                required=False,
+                default=None,
+                help="Profile active status",
+            )
 
     args = parser.parse_args()
 
