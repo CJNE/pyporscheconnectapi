@@ -153,6 +153,11 @@ class PorscheVehicle:
         return self.data.get("TIRE_PRESSURE")
 
     @property
+    def has_tire_pressure_monitoring(self) -> bool:
+        """Return True if vehicle has tire pressure monitoring."""
+        return self.data.get("TIRE_PRESSURE") is not None
+
+    @property
     def charging_target(self) -> Optional[bool]:
         """Return target state of charge (SoC) for high voltage battery."""
 
