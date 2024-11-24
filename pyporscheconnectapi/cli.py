@@ -28,6 +28,8 @@ vehicle_commands = {
     "unlock_vehicle": "Unlock vehicle",
     "vehicle_closed": "Check if all doors and lids are closed",
     "doors_and_lids": "List status of all doors and lids",
+    "tire_pressure_status": "Check if tire pressure are ok",
+    "tire_pressures": "Get tire pressure readings",
     "chargingprofile": "Update parameters in configured charging profile",
 }
 
@@ -106,6 +108,12 @@ async def main(args):
                     elif args.command == "vehicle_closed":
                         await vehicle.get_stored_overview()
                         print(vehicle.vehicle_closed)
+                    elif args.command == "tire_pressure_status":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.tire_pressure_status)
+                    elif args.command == "tire_pressures":
+                        await vehicle.get_stored_overview()
+                        print(json.dumps(vehicle.tire_pressures, indent=2))
                     elif args.command == "doors_and_lids":
                         await vehicle.get_stored_overview()
                         print(vehicle.doors_and_lids)

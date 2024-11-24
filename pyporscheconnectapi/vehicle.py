@@ -9,7 +9,7 @@ from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.remote_services import RemoteServices
 from pyporscheconnectapi.exceptions import PorscheException
 
-from .const import MEASUREMENTS, COMMANDS, TRIP_STATISTICS
+from .const import MEASUREMENTS, COMMANDS, TRIP_STATISTICS, TIRE_PRESSURE_TOLERANCE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -128,6 +128,29 @@ class PorscheVehicle:
             if key.startswith("OPEN_STATE_")
         ]
         return dict(map(dict.popitem, dl))
+
+    @property
+    def tire_pressure_status(self) -> bool:
+        """Return true if tire pressure is within the tolerances."""
+        tire_pressure_status = self.data.get("TIRE_PRESSURE")
+        return (
+            not sorted(
+                map(
+                    abs,
+                    [
+                        tire_pressure_status[key]["differenceBar"]
+                        for key in tire_pressure_status
+                        if key.endswith("Tire")
+                    ],
+                )
+            )[-1]
+            > TIRE_PRESSURE_TOLERANCE
+        )
+
+    @property
+    def tire_pressures(self) -> bool:
+        """Return a dict containing tire pressure readings."""
+        return self.data.get("TIRE_PRESSURE")
 
     @property
     def charging_target(self) -> Optional[bool]:
