@@ -163,9 +163,10 @@ class PorscheVehicle:
 
         if self.data.get("CHARGING_PROFILES"):
             charging_profiles = self.data["CHARGING_PROFILES"]["list"]
-            active_charging_profile_id = self.data["BATTERY_CHARGING_STATE"][
-                "activeProfileId"
-            ]
+            active_charging_profile_id = self.data["BATTERY_CHARGING_STATE"].get("activeProfileId", None)
+
+            if active_charging_profile_id is None:
+                return None
 
             active_charging_profile = next(
                 (p for p in charging_profiles if p["id"] == active_charging_profile_id),
