@@ -31,6 +31,7 @@ vehicle_commands = {
     "tire_pressure_status": "Check if tire pressure are ok",
     "tire_pressures": "Get tire pressure readings",
     "chargingprofile": "Update parameters in configured charging profile",
+    "battery": "Prints the main battery level (BEV)",
 }
 
 try:
@@ -105,6 +106,7 @@ async def main(args):
                     elif args.command == "location":
                         await vehicle.get_stored_overview()
                         print(json.dumps(vehicle.location, indent=2))
+                        print(vehicle.location_updated_at)
                     elif args.command == "vehicle_closed":
                         await vehicle.get_stored_overview()
                         print(vehicle.vehicle_closed)
@@ -149,6 +151,9 @@ async def main(args):
                         service = RemoteServices(vehicle)
                         result = await service.unlock_vehicle(args.pin)
                         print(result.status)
+                    elif args.command == "battery":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.main_battery_level)
                     elif args.command == "chargingprofile":
                         await vehicle.get_stored_overview()
                         service = RemoteServices(vehicle)

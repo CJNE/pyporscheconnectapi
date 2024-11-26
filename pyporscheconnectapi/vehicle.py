@@ -4,6 +4,7 @@ import re
 import json  # only for formatting debug output
 import uuid
 from typing import Optional
+from datetime import datetime
 
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.remote_services import RemoteServices
@@ -72,6 +73,14 @@ class PorscheVehicle:
             self.data["modelType"]["engine"] == "BEV"
             or self.data["modelType"]["engine"] == "PHEV"
         )
+
+    @property
+    def main_battery_level(self) -> int:
+        """Return the main battery level (TODO: for non-BEV it should use the 12V battery level if available?)"""
+        level = 0
+        if not self.has_ice_drivetrain:
+            level = self.data.get('BATTERY_LEVEL', {}).get('percent', 0)
+        return level
 
     @property
     def has_ice_drivetrain(self) -> bool:
@@ -186,6 +195,13 @@ class PorscheVehicle:
             if active_charging_profile is not None:
                 return active_charging_profile.get("minSoc")
         return None
+
+    @property 
+    def location_updated_at(self) -> datetime:
+        datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
+        datetime_object = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%SZ')
+        return datetime_object
+
 
     @property
     def location(self) -> tuple[Optional[int], Optional[int], Optional[int]]:
