@@ -46,6 +46,16 @@ class PorscheVehicle:
         return self.data.get("vin", "not available")
 
     @property
+    def model_name(self) -> str:
+        """Get the model name of the vehicle."""
+        return self.data.get("modelName", "not available")
+
+    @property
+    def model_year(self) -> str:
+        """Get the model year of the vehicle."""
+        return self.data.get("modelType", {}).get("year", "not available")
+
+    @property
     def has_porsche_connect(self) -> bool:
         """Should return true if porsche connect subscription is active. Todo."""
         return True
