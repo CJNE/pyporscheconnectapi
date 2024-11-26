@@ -1,6 +1,6 @@
 import asyncio
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.client import Client
+from pyporscheconnectapi.account import PorscheConnectAccount
 from sys import argv
 import logging
 
@@ -13,17 +13,19 @@ password = argv[2]
 
 async def vehicles() -> None:
     conn = Connection(email, password)
-    client = Client(conn)
+    client = PorscheConnectAccount(connection=conn)
 
-    vehicles = await client.getVehicles()
-    for vehicle in vehicles:
+    vehicles = await client.get_vehicles()
+    for vehicle_obj in vehicles:
+        vehicle = vehicle_obj.data
+
         print(
             f"VIN: {vehicle['vin']}, Model: {vehicle['modelName']}, Year: {vehicle['modelType']['year']}"
         )
         mf = ["BATTERY_LEVEL", "LOCK_STATE_VEHICLE"]
         measurements = "mf=" + "&mf=".join(mf)
         data = await conn.get(
-            f"https://api.ppa.porsche.com/app/connect/v1/vehicles/{vehicle['vin']}?{measurements}"
+            f"/connect/v1/vehicles/{vehicle['vin']}?{measurements}"
         )
 
         soc = (next((x for x in data["measurements"] if x["key"] == mf[0]), None))[
