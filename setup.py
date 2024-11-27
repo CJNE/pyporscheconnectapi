@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="pyporscheconnectapi",
-    version="0.1.7",
+    version="0.2.0",
     author="Johan Isaksson",
     author_email="johan@generatorhallen.se",
     description="Python library and CLI for communicating with Porsche Connect API.",
@@ -15,7 +15,7 @@ setup(
     license="MIT",
     packages=["pyporscheconnectapi"],
     python_requires=">=3.6",
-    install_requires=["aiohttp<4", "beautifulsoup4"],
+    install_requires=["httpx<1"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",

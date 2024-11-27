@@ -2,16 +2,43 @@ import argparse
 import asyncio
 import configparser
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.client import Client
-from pyporscheconnectapi.exceptions import WrongCredentials
+from pyporscheconnectapi.exceptions import PorscheWrongCredentials
+from pyporscheconnectapi.account import PorscheConnectAccount
+from pyporscheconnectapi.remote_services import RemoteServices
 import os
 import sys
 import logging
 import json
 from getpass import getpass
 
+vehicle_commands = {
+    "capabilities": "Get vehicle capabilities",
+    "currentoverview": "Get stored overview for vehicle",
+    "storedoverview": "Poll vehicle for current overview",
+    "trip_statistics": "Get trip statistics from backend",
+    "pictures": "Get vehicle pictures url",
+    "location": "Show location of vehicle",
+    "climatise_on": "Start remote climatisation",
+    "climatise_off": "Stop remote climatisation",
+    "direct_charge_on": "Enable direct charging",
+    "direct_charge_off": "Disable direct charging",
+    "flash_indicators": "Flash indicators",
+    "honk_and_flash": "Flash indicators and sound the horn",
+    "lock_vehicle": "Lock vehicle",
+    "unlock_vehicle": "Unlock vehicle",
+    "vehicle_closed": "Check if all doors and lids are closed",
+    "doors_and_lids": "List status of all doors and lids",
+    "tire_pressure_status": "Check if tire pressure are ok",
+    "tire_pressures": "Get tire pressure readings",
+    "chargingprofile": "Update parameters in configured charging profile",
+    "battery": "Prints the main battery level (BEV)",
+}
+
 try:
-    from rich import print
+    from rich.console import Console
+
+    console = Console()
+    print = console.print
 except ImportError:
     pass
 
@@ -24,120 +51,124 @@ _LOGGER = logging.getLogger(__name__)
 async def main(args):
     try:
         with open(args.session_file) as json_file:
-            tokens = json.load(json_file)
+            token = json.load(json_file)
     except FileNotFoundError:
-        tokens = {}
+        token = {}
     except json.decoder.JSONDecodeError:
-        tokens = {}
+        token = {}
 
     if args.debug:
         logging.root.setLevel(logging.DEBUG)
 
     email = args.email or input("Please enter Porsche Connect email: ")
     password = args.password or getpass()
-    conn = Connection(
-        email, password, tokens=tokens, country=args.country, language=args.language
-    )
 
-    client = Client(
-        conn, country=args.country, language=args.language, timezone=args.timezone
-    )
+    connection = Connection(email, password, token=token)
+    controller = PorscheConnectAccount(connection=connection)
 
     try:
         if args.command == "list":
-            data = await client.getVehicles()
-            print(json.dumps(data, indent=2))
-        elif args.command == "tokens":
-            data = await client.getAllTokens()
+            vehicles = await controller.get_vehicles()
+            for vehicle in vehicles:
+                print(vehicle)
+                print(json.dumps(vehicle.data, indent=2))
+        elif args.command == "token":
+            data = controller.token
             print(json.dumps(data, indent=2))
         else:
             vins = []
             if args.vin is not None:
                 vins = [args.vin]
             elif args.all:
-                vehicles = await client.getVehicles()
-                vins = map(lambda v: v["vin"], vehicles)
+                vehicles = await controller.get_vehicles()
+                vins = map(lambda v: v.vin, vehicles)
             else:
                 sys.exit("--vin or --all is required")
             for vin in vins:
                 data = {}
-                if args.command == "overview":
-                    if args.nowait:
-                        data = await client.getStoredOverview(vin)
-                    else:
-                        data = await client.getCurrentOverview(vin)
-                elif args.command == "maintenance":
-                    data = await client.getMaintenance(vin)
-                elif args.command == "summary":
-                    data = await client.getSummary(vin)
-                elif args.command == "capabilities":
-                    data = await client.getCapabilities(vin)
-                elif args.command == "permissions":
-                    data = await client.isAllowed(vin)
-                elif args.command == "services":
-                    data = await client.getServices(vin)
-                elif args.command == "position":
-                    data = await client.getPosition(vin)
-                elif args.command == "emobility":
-                    data = await client.getEmobility(vin, model=args.model)
-                elif args.command == "triplongterm":
-                    data = await client.getTripLongTerm(vin)
-                elif args.command == "tripshortterm":
-                    data = await client.getTripShortTerm(vin)
-                elif args.command == "speedalerts":
-                    data = await client.getSpeedAlerts(vin)
-                elif args.command == "theftalerts":
-                    data = await client.getTheftAlerts(vin)
-                elif args.command == "climate-on":
-                    data = await client.climateOn(
-                        vin, waitForConfirmation=not args.nowait
-                    )
-                elif args.command == "climate-off":
-                    data = await client.climateOff(
-                        vin, waitForConfirmation=not args.nowait
-                    )
-                elif args.command == "directcharge-on":
-                    data = await client.directChargeOn(
-                        vin, model=args.model, waitForConfirmation=not args.nowait
-                    )
-                elif args.command == "directcharge-off":
-                    data = await client.directChargeOff(
-                        vin, model=args.model, waitForConfirmation=not args.nowait
-                    )
-                elif args.command == "chargingprofile":
-                    data = await client.updateChargingProfile(
-                        vin,
-                        model=args.model,
-                        profileId=args.profileid,
-                        minimumChargeLevel=args.minimumchargelevel,
-                        profileActive=args.profileactive,
-                        long=args.long,
-                        lat=args.lat,
-                        waitForConfirmation=not args.nowait,
-                    )
-                elif args.command == "honk":
-                    data = await client.honkAndFlash(
-                        vin, waitForConfirmation=not args.nowait
-                    )
-                elif args.command == "flash":
-                    data = await client.flash(vin, waitForConfirmation=not args.nowait)
-                elif args.command == "lock":
-                    data = await client.lock(vin, waitForConfirmation=not args.nowait)
-                elif args.command == "unlock":
-                    pin = args.pin
-                    if pin is None:
-                        pin = getpass("PIN code: ")
-                    data = await client.unlock(
-                        vin, pin, waitForConfirmation=not args.nowait
-                    )
+                vehicle = await controller.get_vehicle(vin)
+                if vehicle is not None:
+                    if args.command == "capabilities":
+                        data = await vehicle.get_capabilities()
+                        print(json.dumps(vehicle.capabilities, indent=2))
+                    elif args.command == "currentoverview":
+                        await vehicle.get_current_overview()
+                        print(json.dumps(vehicle.data, indent=2))
+                    elif args.command == "storedoverview":
+                        await vehicle.get_stored_overview()
+                        print(json.dumps(vehicle.data, indent=2))
+                    elif args.command == "trip_statistics":
+                        await vehicle.get_trip_statistics()
+                        print(json.dumps(vehicle.trip_statistics, indent=2))
+                    elif args.command == "pictures":
+                        await vehicle.get_picture_locations()
+                        print(json.dumps(vehicle.picture_locations, indent=2))
+                    elif args.command == "location":
+                        await vehicle.get_stored_overview()
+                        print(json.dumps(vehicle.location, indent=2))
+                        print(vehicle.location_updated_at)
+                    elif args.command == "vehicle_closed":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.vehicle_closed)
+                    elif args.command == "tire_pressure_status":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.tire_pressure_status)
+                    elif args.command == "tire_pressures":
+                        await vehicle.get_stored_overview()
+                        print(json.dumps(vehicle.tire_pressures, indent=2))
+                    elif args.command == "doors_and_lids":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.doors_and_lids)
+                    elif args.command == "climatise_on":
+                        service = RemoteServices(vehicle)
+                        result = await service.climatise_on()
+                        print(result.status)
+                    elif args.command == "climatise_off":
+                        service = RemoteServices(vehicle)
+                        result = await service.climatise_off()
+                        print(result.status)
+                    elif args.command == "direct_charge_on":
+                        service = RemoteServices(vehicle)
+                        result = await service.direct_charge_on()
+                        print(result.status)
+                    elif args.command == "direct_charge_off":
+                        service = RemoteServices(vehicle)
+                        result = await service.direct_charge_off()
+                        print(result.status)
+                    elif args.command == "flash_indicators":
+                        service = RemoteServices(vehicle)
+                        result = await service.flash_indicators()
+                        print(result.status)
+                    elif args.command == "honk_and_flash":
+                        service = RemoteServices(vehicle)
+                        result = await service.honk_and_flash_indicators()
+                        print(result.status)
+                    elif args.command == "lock_vehicle":
+                        service = RemoteServices(vehicle)
+                        result = await service.lock_vehicle()
+                        print(result.status)
+                    elif args.command == "unlock_vehicle":
+                        service = RemoteServices(vehicle)
+                        result = await service.unlock_vehicle(args.pin)
+                        print(result.status)
+                    elif args.command == "battery":
+                        await vehicle.get_stored_overview()
+                        print(vehicle.main_battery_level)
+                    elif args.command == "chargingprofile":
+                        await vehicle.get_stored_overview()
+                        service = RemoteServices(vehicle)
+                        result = await service.updateChargingProfile(
+                            profileId=args.profileid,
+                            minimumChargeLevel=args.minimumchargelevel,
+                        )
+                        print(result.status)
 
-                print(json.dumps(data, indent=2))
-    except WrongCredentials as e:
+    except PorscheWrongCredentials as e:
         sys.exit(e.message)
 
-    await conn.close()
+    await connection.close()
     with open(args.session_file, "w", encoding="utf-8") as json_file:
-        json.dump(conn.tokens, json_file, ensure_ascii=False, indent=2)
+        json.dump(connection.token, json_file, ensure_ascii=False, indent=2)
 
 
 def add_arg_vin(parser):
@@ -148,19 +179,12 @@ def add_arg_vin(parser):
     group.add_argument("-a", "--all", dest="all", action="store_true")
 
 
-def add_arg_model(parser):
-    parser.add_argument("-m", "--model", dest="model", default=None)
-
-
 def cli():
     config = configparser.ConfigParser()
     config["porsche"] = {
         "email": "",
         "password": "",
         "session_file": ".session",
-        "country": "DE",
-        "language": "de",
-        "timezone": "Europe/Stockholm",
     }
     config.read([".porscheconnect.cfg", os.path.expanduser("~/.porscheconnect.cfg")])
     parser = argparse.ArgumentParser(description="Porsche Connect CLI")
@@ -179,129 +203,48 @@ def cli():
         dest="session_file",
         default=config.get("porsche", "session_file"),
     )
-    parser.add_argument(
-        "-c", "--country", dest="country", default=config.get("porsche", "country")
-    )
-    parser.add_argument(
-        "-l", "--language", dest="language", default=config.get("porsche", "language")
-    )
-    parser.add_argument(
-        "-z", "--timezone", dest="timezone", default=config.get("porsche", "timezone")
-    )
+
     parser.add_argument("--nowait", dest="nowait", action="store_true")
 
-    parser_command_list = subparsers.add_parser("list")
+    subparsers.add_parser("list")
+    subparsers.add_parser("token")
 
-    parser_command_services = subparsers.add_parser("services")
-    add_arg_vin(parser_command_services)
-
-    parser_command_overview = subparsers.add_parser("overview")
-    add_arg_vin(parser_command_overview)
-
-    parser_command_maintenance = subparsers.add_parser("maintenance")
-    add_arg_vin(parser_command_maintenance)
-
-    parser_command_summary = subparsers.add_parser("summary")
-    add_arg_vin(parser_command_summary)
-
-    parser_command_capabilities = subparsers.add_parser("capabilities")
-    add_arg_vin(parser_command_capabilities)
-
-    parser_command_permissions = subparsers.add_parser("permissions")
-    add_arg_vin(parser_command_permissions)
-
-    parser_command_emobility = subparsers.add_parser("emobility")
-    add_arg_vin(parser_command_emobility)
-    add_arg_model(parser_command_emobility)
-
-    parser_command_position = subparsers.add_parser("position")
-    add_arg_vin(parser_command_position)
-
-    parser_command_triplongterm = subparsers.add_parser("triplongterm")
-    add_arg_vin(parser_command_triplongterm)
-
-    parser_command_tripshortterm = subparsers.add_parser("tripshortterm")
-    add_arg_vin(parser_command_tripshortterm)
-
-    parser_command_speedalerts = subparsers.add_parser("speedalerts")
-    add_arg_vin(parser_command_speedalerts)
-
-    parser_command_theftalerts = subparsers.add_parser("theftalerts")
-    add_arg_vin(parser_command_theftalerts)
-
-    parser_command_tokens = subparsers.add_parser("tokens")
-
-    parser_command_lock = subparsers.add_parser("lock")
-    add_arg_vin(parser_command_lock)
-
-    parser_command_unlock = subparsers.add_parser("unlock")
-    add_arg_vin(parser_command_unlock)
-    parser_command_unlock.add_argument(
-        "-n", "--pin", required=True, dest="pin", default=None
-    )
-
-    parser_command_climateon = subparsers.add_parser("climate-on")
-    add_arg_vin(parser_command_climateon)
-
-    parser_command_climateoff = subparsers.add_parser("climate-off")
-    add_arg_vin(parser_command_climateoff)
-
-    parser_command_directchargeon = subparsers.add_parser("directcharge-on")
-    add_arg_vin(parser_command_directchargeon)
-    add_arg_model(parser_command_directchargeon)
-
-    parser_command_directchargeoff = subparsers.add_parser("directcharge-off")
-    add_arg_vin(parser_command_directchargeoff)
-    add_arg_model(parser_command_directchargeoff)
-
-    parser_command_honk = subparsers.add_parser("honk")
-    add_arg_vin(parser_command_honk)
-
-    parser_command_flash = subparsers.add_parser("flash")
-    add_arg_vin(parser_command_flash)
-
-    parser_command_chargingprofile = subparsers.add_parser(
-        "chargingprofile", help="Update parameters in configured charging profile"
-    )
-    add_arg_vin(parser_command_chargingprofile)
-    add_arg_model(parser_command_chargingprofile)
-    parser_command_chargingprofile.add_argument(
-        "--profileid", dest="profileid", type=int, required=True, help="Profile ID"
-    )
-    parser_command_chargingprofile.add_argument(
-        "--chargelevel",
-        dest="minimumchargelevel",
-        type=int,
-        required=False,
-        default=None,
-        help="Minimun charge level",
-    )
-    parser_command_chargingprofile.add_argument(
-        "--profileactive",
-        dest="profileactive",
-        type=bool,
-        required=False,
-        default=None,
-        help="Profile active status",
-    )
-    parser_command_chargingprofile.add_argument(
-        "--long",
-        dest="long",
-        type=float,
-        required=False,
-        default=None,
-        help="Longitude (WGS84 decimal)",
-    )
-    parser_command_chargingprofile.add_argument(
-        "--lat",
-        dest="lat",
-        type=float,
-        required=False,
-        default=None,
-        help="Latitude (WGS84 decimal)",
-    )
+    for vc in vehicle_commands:
+        parser_command = subparsers.add_parser(vc, help=vehicle_commands[vc])
+        add_arg_vin(parser_command)
+        if vc == "unlock_vehicle":
+            parser_command.add_argument(
+                "-n", "--pin", required=True, dest="pin", default=None
+            )
+        if vc == "chargingprofile":
+            parser_command.add_argument(
+                "--profileid",
+                dest="profileid",
+                type=int,
+                required=False,
+                help="Profile id",
+            )
+            parser_command.add_argument(
+                "--chargelevel",
+                dest="minimumchargelevel",
+                type=int,
+                required=False,
+                default=None,
+                help="Minimum charge level",
+            )
+            parser_command.add_argument(
+                "--profileactive",
+                dest="profileactive",
+                type=bool,
+                required=False,
+                default=None,
+                help="Profile active status",
+            )
 
     args = parser.parse_args()
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(args))
+    if args.command:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main(args))
+    else:
+        parser.print_help(sys.stderr)
