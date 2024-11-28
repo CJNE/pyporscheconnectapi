@@ -4,21 +4,23 @@ A python library for Porsche Connect API
 This library will let you access your car equipped with Porsche Connect. It does not work with the predecessor Porsche Car Connect.
 Porsche Connect is available for the following Porsche models:
 
-* Taycan
+* Boxster & Cayman (718)
 * 911 (from 992)
-* Cayenne (from 2017, E3)
+* Taycan
 * Panamera (from 2021, G2 PA)
+* Macan (EV, from 2024)
+* Cayenne (from 2017, E3)
 
 You can also take a look here, select your model and see if your model has support for Porsche Connect:
 https://connect-store.porsche.com/
 
 A Porsche Connect subscription alse needs to be active for it to work.
 
-*NOTE:* This work is not officially supported by Porsche and functionality can stop working at any time without warning
+*NOTE:* This work is not officially supported by Porsche and functionality can stop working at any time without warning.
 
 ## Installation
 
-The easiest method is to install using pip3/pip (venv is also a good idea)
+The easiest method is to install using pip3/pip (venv is also a good idea).
 ```
 pip install pyporscheconnectapi
 ```
@@ -29,15 +31,14 @@ to update to the latest version
 pip install pyporscheconnectapi -U
 ```
 
-Setup will add a cli under the name porschecli, see below for usage
+Setup will add a cli under the name porschecli, see below for usage.
 
 
 ## CLI usage
 
-A simple cli is provided with this library, it will cache tokens to a file to speed up invocations. It does not yet support the create/update/delete timer functionality which is present in the library.
+A simple cli is provided with this library, it will cache tokens to a file to speed up invocations.
 
-If no email or password is supplied as input arguments and no config file with those details is found you will be prompted. Same goes for PIN (used to lock or unlock).
-The --nowait option will just request the action (or stored information) without waiting for confirmation.
+If no email or password is supplied as input arguments and no config file with those details is found you will be prompted.
 ```
 usage: porschecli [-h] [-d] [-e EMAIL] [-p PASSWORD] [-s SESSION_FILE] [--nowait]
                   {list,token,capabilities,currentoverview,storedoverview,trip_statistics,pictures,location,climatise_on,climatise_off,direct_charge_on,direct_charge_off,flash_indicators,honk_and_flash,lock_vehicle,unlock_vehicle,vehicle_closed,doors_and_lids,tire_pressure_status,tire_pressures,chargingprofile}
