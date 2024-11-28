@@ -242,6 +242,7 @@ class OAuth2Client:
             headers=self.headers,
         )
 
+        # In case of wrong password, the response code is 400 (Bad request)
         if resp.status_code == 400:
             raise PorscheWrongCredentials("Wrong credentials")
 
