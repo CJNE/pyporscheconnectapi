@@ -201,8 +201,10 @@ class PorscheVehicle:
     @property
     def location_updated_at(self) -> datetime:
         datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
-        datetime_object = datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ")
-        return datetime_object
+        if datetime_str:
+            datetime_object = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%SZ')
+            return datetime_object
+        return None
 
     @property
     def location(self) -> tuple[Optional[int], Optional[int], Optional[int]]:
