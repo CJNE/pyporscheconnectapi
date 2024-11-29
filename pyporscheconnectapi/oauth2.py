@@ -168,6 +168,9 @@ class OAuth2Client:
         resp = await self.client.get(
             url, params=params, timeout=TIMEOUT, headers=self.headers
         )
+        if resp.status_code != 302:
+            raise PorscheException("Could not fetch authorization code")
+
         location = resp.headers["Location"]
         return self._extract_params_from_url(location)
 
@@ -214,10 +217,7 @@ class OAuth2Client:
         )
 
         if resp.status_code == 401:
-            message = resp.json()
-            raise PorscheWrongCredentials(
-                message.get("message", message.get("description", "Unknown error"))
-            )
+            raise PorscheWrongCredentials("Wrong credentials")
 
         # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
         if resp.status_code == 400:
@@ -242,11 +242,9 @@ class OAuth2Client:
             headers=self.headers,
         )
 
-        if resp.status_code == 401:
-            message = resp.json()
-            raise PorscheWrongCredentials(
-                message.get("message", message.get("description", "Unknown error"))
-            )
+        # In case of wrong password, the response code is 400 (Bad request)
+        if resp.status_code == 400:
+            raise PorscheWrongCredentials("Wrong credentials")
 
         resume_url = resp.headers["Location"]
         _LOGGER.debug(f"Resume at {resume_url}")
