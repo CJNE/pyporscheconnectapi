@@ -3,7 +3,9 @@ import asyncio
 import logging
 import time
 import httpx
+import base64
 
+from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
 from collections import namedtuple
 
@@ -221,8 +223,11 @@ class OAuth2Client:
 
         # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
         if resp.status_code == 400:
-            html_body = resp.text
-            _LOGGER.debug(html_body)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            captcha = soup.find("img", {"alt": "captcha"})
+            imgb64 = captcha["src"].split(",")[1]
+            svg = base64.b64decode(imgb64)
+            _LOGGER.debug(f"Got SVG captcha", svg)
             raise PorscheCaptchaRequired("Captcha required")
 
         # 2. /u/login/password w/ password
@@ -244,6 +249,7 @@ class OAuth2Client:
 
         # In case of wrong password, the response code is 400 (Bad request)
         if resp.status_code == 400:
+            _LOGGER.debug(f"Error 400", resp.content)
             raise PorscheWrongCredentials("Wrong credentials")
 
         resume_url = resp.headers["Location"]
