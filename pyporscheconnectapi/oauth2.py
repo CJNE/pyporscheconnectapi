@@ -227,7 +227,7 @@ class OAuth2Client:
             captcha = soup.find("img", {"alt": "captcha"})
             imgb64 = captcha["src"].split(",")[1]
             svg = base64.b64decode(imgb64)
-            _LOGGER.debug(f"Got SVG captcha: {svg}")
+            _LOGGER.debug(f"Got SVG captcha: {captcha}")
             raise PorscheCaptchaRequired("Captcha required")
 
         # 2. /u/login/password w/ password
