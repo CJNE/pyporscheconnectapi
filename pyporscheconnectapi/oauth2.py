@@ -261,13 +261,24 @@ class OAuth2Client:
                 "action": "default",
             }
 
+            url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
+            resp = await self.client.post(
+                url,
+                data=data,
+                params={"state": state},
+                timeout=TIMEOUT,
+                headers=self.headers,
+            )
+
+            if resp.status_code == 401:
+                raise PorscheWrongCredentials("Wrong credentials")
+
             # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
             if resp.status_code == 400:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 captcha = soup.find("img", {"alt": "captcha"})
                 _LOGGER.debug(f"Got SVG captcha: {captcha}")
                 raise PorscheCaptchaRequired(captcha=captcha, state=state)
-
 
         # 2. /u/login/password w/ password
         data = {
