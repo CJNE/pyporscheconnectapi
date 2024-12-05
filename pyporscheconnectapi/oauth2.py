@@ -31,7 +31,9 @@ from .exceptions import (
 
 _LOGGER = logging.getLogger(__name__)
 
+
 Credentials = namedtuple("Credentials", ["email", "password"])
+Captcha = namedtuple("Captcha", ["captcha_code", "state"])
 
 
 class OAuth2Token(dict):
@@ -84,10 +86,15 @@ class OAuth2Client:
     """
 
     def __init__(
-        self, client: httpx.AsyncClient, credentials: Credentials, leeway: int = 60
+        self,
+        client: httpx.AsyncClient,
+        credentials: Credentials,
+        captcha: Captcha,
+        leeway: int = 60,
     ):
         self.client = client
         self.credentials = credentials
+        self.captcha = captcha
         self.leeway = leeway
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
 
@@ -124,40 +131,54 @@ class OAuth2Client:
 
         :return: authorization code to be exchanged for an access token
         """
-        try:
-            # first request to get the code
-            params = await self.get_and_extract_location_params(
-                AUTHORIZATION_URL,
-                params={
-                    "response_type": "code",
-                    "client_id": CLIENT_ID,
-                    "redirect_uri": REDIRECT_URI,
-                    "audience": AUDIENCE,
-                    "scope": SCOPE,
-                    "state": "pyporscheconnectapi",
-                },
-            )
-            authorization_code = params.get("code", [None])[0]
+        if self.captcha.captcha_code is None:
+            try:
+                # first request to get the code
+                params = await self.get_and_extract_location_params(
+                    AUTHORIZATION_URL,
+                    params={
+                        "response_type": "code",
+                        "client_id": CLIENT_ID,
+                        "redirect_uri": REDIRECT_URI,
+                        "audience": AUDIENCE,
+                        "scope": SCOPE,
+                        "state": "pyporscheconnectapi",
+                    },
+                )
+                authorization_code = params.get("code", [None])[0]
 
-            # if we already have a session with Auth, just use the code they return
-            if authorization_code is not None:
+                # if we already have a session with Auth, just use the code they return
+                if authorization_code is not None:
+                    _LOGGER.debug(f"Authorization code: {authorization_code}")
+                    return authorization_code
+
+                # no existing Auth0 session, run through Identifier First flow
+                resume_path = await self.login_with_identifier(params["state"][0])
+
+                # completed the Identifier First flow, now resume the auth code request
+                params = await self.get_and_extract_location_params(
+                    f"https://{AUTHORIZATION_SERVER}{resume_path}"
+                )
+                authorization_code = params.get("code", [None])[0]
                 _LOGGER.debug(f"Authorization code: {authorization_code}")
+
                 return authorization_code
 
-            # no existing Auth0 session, run through Identifier First flow
-            resume_path = await self.login_with_identifier(params["state"][0])
+            except httpx.HTTPStatusError as exception_:
+                raise PorscheException(exception_.response.status_code)
+        else:
+            try:
+                resume_path = await self.login_with_identifier(self.captcha.state)
+                params = await self.get_and_extract_location_params(
+                    f"https://{AUTHORIZATION_SERVER}{resume_path}"
+                )
+                authorization_code = params.get("code", [None])[0]
+                _LOGGER.debug(f"Authorization code: {authorization_code}")
 
-            # completed the Identifier First flow, now resume the auth code request
-            params = await self.get_and_extract_location_params(
-                f"https://{AUTHORIZATION_SERVER}{resume_path}"
-            )
-            authorization_code = params.get("code", [None])[0]
-            _LOGGER.debug(f"Authorization code: {authorization_code}")
+                return authorization_code
 
-            return authorization_code
-
-        except httpx.HTTPStatusError as exception_:
-            raise PorscheException(exception_.response.status_code)
+            except httpx.HTTPStatusError as exception_:
+                raise PorscheException(exception_.response.status_code)
 
     async def get_and_extract_location_params(self, url, params={}):
         """
@@ -197,38 +218,56 @@ class OAuth2Client:
         :param state: state parameter from the initial authorize request
         :return: URL to resume the auth code request
         """
+        if self.captcha.captcha_code is None:
+            # 1. /u/login/identifier w/ email
+            data = {
+                "state": state,
+                "username": self.credentials.email,
+                "js-available": True,
+                "webauthn-available": False,
+                "is-brave": False,
+                "webauthn-platform-available": False,
+                "action": "default",
+            }
 
-        # 1. /u/login/identifier w/ email
-        data = {
-            "state": state,
-            "username": self.credentials.email,
-            "js-available": True,
-            "webauthn-available": False,
-            "is-brave": False,
-            "webauthn-platform-available": False,
-            "action": "default",
-        }
+            url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
+            resp = await self.client.post(
+                url,
+                data=data,
+                params={"state": state},
+                timeout=TIMEOUT,
+                headers=self.headers,
+            )
 
-        url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
-        resp = await self.client.post(
-            url,
-            data=data,
-            params={"state": state},
-            timeout=TIMEOUT,
-            headers=self.headers,
-        )
+            if resp.status_code == 401:
+                raise PorscheWrongCredentials("Wrong credentials")
 
-        if resp.status_code == 401:
-            raise PorscheWrongCredentials("Wrong credentials")
+            # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
+            if resp.status_code == 400:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                captcha = soup.find("img", {"alt": "captcha"})
+                _LOGGER.debug(f"Got SVG captcha: {captcha}")
+                raise PorscheCaptchaRequired(captcha=captcha, state=state)
+        else:
+            # 1. /u/login/identifier w/ email
+            data = {
+                "state": state,
+                "username": self.credentials.email,
+                "captcha": self.captcha.captcha_code,
+                "js-available": True,
+                "webauthn-available": False,
+                "is-brave": False,
+                "webauthn-platform-available": False,
+                "action": "default",
+            }
 
-        # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
-        if resp.status_code == 400:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            captcha = soup.find("img", {"alt": "captcha"})
-            imgb64 = captcha["src"].split(",")[1]
-            svg = base64.b64decode(imgb64)
-            _LOGGER.debug(f"Got SVG captcha: {captcha}")
-            raise PorscheCaptchaRequired("Captcha required")
+            # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
+            if resp.status_code == 400:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                captcha = soup.find("img", {"alt": "captcha"})
+                _LOGGER.debug(f"Got SVG captcha: {captcha}")
+                raise PorscheCaptchaRequired(captcha=captcha, state=state)
+
 
         # 2. /u/login/password w/ password
         data = {
