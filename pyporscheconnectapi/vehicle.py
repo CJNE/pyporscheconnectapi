@@ -205,13 +205,13 @@ class PorscheVehicle:
         return None
 
     @property
-    def location(self) -> tuple[Optional[int], Optional[int], Optional[int]]:
+    def location(self) -> tuple[Optional[float], Optional[float], Optional[int]]:
         """Get the location of the vehicle."""
 
         loc = self.data.get("GPS_LOCATION", {}).get("location")
         heading = self.data.get("GPS_LOCATION", {}).get("direction")
-        if loc and re.match(r"[\.0-9]+,[\.0-9]+", loc):
-            lat, lon = loc.split(",")
+        if loc and re.match(r"[\-\.0-9]+,[\-\.0-9]+", loc):
+            lat, lon = map(float, loc.split(","))
         else:
             lat, lon = None, None
 
