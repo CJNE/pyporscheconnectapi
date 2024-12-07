@@ -79,7 +79,7 @@ class PorscheVehicle:
         """Return the main battery level (TODO: for non-BEV it should use the 12V battery level if available?)"""
         level = 0
         if not self.has_ice_drivetrain:
-            level = self.data.get('BATTERY_LEVEL', {}).get('percent', 0)
+            level = self.data.get("BATTERY_LEVEL", {}).get("percent", 0)
         return level
 
     @property
@@ -182,7 +182,9 @@ class PorscheVehicle:
 
         if self.data.get("CHARGING_PROFILES"):
             charging_profiles = self.data["CHARGING_PROFILES"]["list"]
-            active_charging_profile_id = self.data["BATTERY_CHARGING_STATE"].get("activeProfileId", None)
+            active_charging_profile_id = self.data["BATTERY_CHARGING_STATE"].get(
+                "activeProfileId", None
+            )
 
             if active_charging_profile_id is None:
                 return None
@@ -196,11 +198,11 @@ class PorscheVehicle:
                 return active_charging_profile.get("minSoc")
         return None
 
-    @property 
+    @property
     def location_updated_at(self) -> datetime:
         datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
         if datetime_str:
-            datetime_object = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%SZ')
+            datetime_object = datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ")
             return datetime_object
         return None
 
