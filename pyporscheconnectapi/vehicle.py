@@ -202,7 +202,7 @@ class PorscheVehicle:
     def location_updated_at(self) -> datetime:
         datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
         if datetime_str:
-            datetime_object = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%SZ')
+            datetime_object = datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ")
             return datetime_object
         return None
 

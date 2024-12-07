@@ -255,14 +255,14 @@ class OAuth2Client:
             if resp.status_code == 400:
                 _LOGGER.debug(f"Captcha required.")
                 soup = BeautifulSoup(resp.text, "html.parser")
-                captcha = str(soup.find("img", {"alt": "captcha"}))
-                _LOGGER.debug(f"Parsed out SVG captcha: {captcha}")
-                raise PorscheCaptchaRequired(captcha=captcha, state=state)
+                captcha_img = str(soup.find("img", {"alt": "captcha"}))
+                _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
+                raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
         else:
             # 1. /u/login/identifier w/ email
 
             _LOGGER.debug(
-                f"Submitting e-mail address and captcha code {captcha} to auth endpoint."
+                f"Submitting e-mail address and captcha code {self.captcha.captcha_code} to auth endpoint."
             )
 
             data = {
@@ -290,11 +290,11 @@ class OAuth2Client:
 
             # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
             if resp.status_code == 400:
-                _LOGGER.debug(f"Captcha required again: {captcha}")
+                _LOGGER.debug(f"Captcha required again.")
                 soup = BeautifulSoup(resp.text, "html.parser")
-                captcha = str(soup.find("img", {"alt": "captcha"}))
-                _LOGGER.debug(f"Parsed out SVG captcha: {captcha}")
-                raise PorscheCaptchaRequired(captcha=captcha, state=state)
+                captcha_img = str(soup.find("img", {"alt": "captcha"}))
+                _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
+                raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
 
         # 2. /u/login/password w/ password
 
