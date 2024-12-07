@@ -31,7 +31,6 @@ from .exceptions import (
 
 _LOGGER = logging.getLogger(__name__)
 
-
 Credentials = namedtuple("Credentials", ["email", "password"])
 Captcha = namedtuple("Captcha", ["captcha_code", "state"])
 
@@ -133,6 +132,8 @@ class OAuth2Client:
         """
         if self.captcha.captcha_code is None:
             try:
+                _LOGGER.debug(f"Fetching authorization code.")
+
                 # first request to get the code
                 params = await self.get_and_extract_location_params(
                     AUTHORIZATION_URL,
@@ -149,10 +150,14 @@ class OAuth2Client:
 
                 # if we already have a session with Auth, just use the code they return
                 if authorization_code is not None:
-                    _LOGGER.debug(f"Authorization code: {authorization_code}")
+                    _LOGGER.debug(f"Got authorization code: {authorization_code}")
                     return authorization_code
 
                 # no existing Auth0 session, run through Identifier First flow
+                _LOGGER.debug(
+                    f"No existing auth0 session, running through identifier first flow."
+                )
+
                 resume_path = await self.login_with_identifier(params["state"][0])
 
                 # completed the Identifier First flow, now resume the auth code request
@@ -218,8 +223,12 @@ class OAuth2Client:
         :param state: state parameter from the initial authorize request
         :return: URL to resume the auth code request
         """
+
         if self.captcha.captcha_code is None:
             # 1. /u/login/identifier w/ email
+
+            _LOGGER.debug(f"Submitting e-mail address to auth endpoint.")
+
             data = {
                 "state": state,
                 "username": self.credentials.email,
@@ -244,12 +253,18 @@ class OAuth2Client:
 
             # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
             if resp.status_code == 400:
+                _LOGGER.debug(f"Captcha required.")
                 soup = BeautifulSoup(resp.text, "html.parser")
-                captcha = soup.find("img", {"alt": "captcha"})
-                _LOGGER.debug(f"Got SVG captcha: {captcha}")
+                captcha = str(soup.find("img", {"alt": "captcha"}))
+                _LOGGER.debug(f"Parsed out SVG captcha: {captcha}")
                 raise PorscheCaptchaRequired(captcha=captcha, state=state)
         else:
             # 1. /u/login/identifier w/ email
+
+            _LOGGER.debug(
+                f"Submitting e-mail address and captcha code {captcha} to auth endpoint."
+            )
+
             data = {
                 "state": state,
                 "username": self.credentials.email,
@@ -275,12 +290,16 @@ class OAuth2Client:
 
             # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
             if resp.status_code == 400:
+                _LOGGER.debug(f"Captcha required again: {captcha}")
                 soup = BeautifulSoup(resp.text, "html.parser")
-                captcha = soup.find("img", {"alt": "captcha"})
-                _LOGGER.debug(f"Got SVG captcha: {captcha}")
+                captcha = str(soup.find("img", {"alt": "captcha"}))
+                _LOGGER.debug(f"Parsed out SVG captcha: {captcha}")
                 raise PorscheCaptchaRequired(captcha=captcha, state=state)
 
         # 2. /u/login/password w/ password
+
+        _LOGGER.debug(f"Submitting password to auth endpoint.")
+
         data = {
             "state": state,
             "username": self.credentials.email,
@@ -299,7 +318,7 @@ class OAuth2Client:
 
         # In case of wrong password, the response code is 400 (Bad request)
         if resp.status_code == 400:
-            _LOGGER.debug(f"Error 400", resp.content)
+            _LOGGER.debug(f"Invalid credentials.")
             raise PorscheWrongCredentials("Wrong credentials")
 
         resume_url = resp.headers["Location"]
@@ -325,6 +344,8 @@ class OAuth2Client:
         }
 
         try:
+            _LOGGER.debug(f"Exchanging the authorization code for an access token.")
+
             resp = await self.client.post(
                 TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers
             )
@@ -347,6 +368,8 @@ class OAuth2Client:
             "refresh_token": refresh_token,
         }
         try:
+            _LOGGER.debug(f"Using the refresh token to get a new access token.")
+
             resp = await self.client.post(
                 TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers
             )
