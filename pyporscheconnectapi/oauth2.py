@@ -224,77 +224,45 @@ class OAuth2Client:
         :return: URL to resume the auth code request
         """
 
+        # 1. /u/login/identifier w/ email (and captcha code)
+
+        data = {
+            "state": state,
+            "username": self.credentials.email,
+            "js-available": True,
+            "webauthn-available": False,
+            "is-brave": False,
+            "webauthn-platform-available": False,
+            "action": "default",
+        }
+
         if self.captcha.captcha_code is None:
-            # 1. /u/login/identifier w/ email
-
             _LOGGER.debug(f"Submitting e-mail address to auth endpoint.")
-
-            data = {
-                "state": state,
-                "username": self.credentials.email,
-                "js-available": True,
-                "webauthn-available": False,
-                "is-brave": False,
-                "webauthn-platform-available": False,
-                "action": "default",
-            }
-
-            url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
-            resp = await self.client.post(
-                url,
-                data=data,
-                params={"state": state},
-                timeout=TIMEOUT,
-                headers=self.headers,
-            )
-
-            if resp.status_code == 401:
-                raise PorscheWrongCredentials("Wrong credentials")
-
-            # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
-            if resp.status_code == 400:
-                _LOGGER.debug(f"Captcha required.")
-                soup = BeautifulSoup(resp.text, "html.parser")
-                captcha_img = str(soup.find("img", {"alt": "captcha"}))
-                _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
-                raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
         else:
-            # 1. /u/login/identifier w/ email
-
+            data.update({"captcha": self.captcha.captcha_code})
             _LOGGER.debug(
                 f"Submitting e-mail address and captcha code {self.captcha.captcha_code} to auth endpoint."
             )
 
-            data = {
-                "state": state,
-                "username": self.credentials.email,
-                "captcha": self.captcha.captcha_code,
-                "js-available": True,
-                "webauthn-available": False,
-                "is-brave": False,
-                "webauthn-platform-available": False,
-                "action": "default",
-            }
+        url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
+        resp = await self.client.post(
+            url,
+            data=data,
+            params={"state": state},
+            timeout=TIMEOUT,
+            headers=self.headers,
+        )
 
-            url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
-            resp = await self.client.post(
-                url,
-                data=data,
-                params={"state": state},
-                timeout=TIMEOUT,
-                headers=self.headers,
-            )
+        if resp.status_code == 401:
+            raise PorscheWrongCredentials("Wrong credentials")
 
-            if resp.status_code == 401:
-                raise PorscheWrongCredentials("Wrong credentials")
-
-            # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
-            if resp.status_code == 400:
-                _LOGGER.debug(f"Captcha required again.")
-                soup = BeautifulSoup(resp.text, "html.parser")
-                captcha_img = str(soup.find("img", {"alt": "captcha"}))
-                _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
-                raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
+        # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
+        if resp.status_code == 400:
+            _LOGGER.debug(f"Captcha required.")
+            soup = BeautifulSoup(resp.text, "html.parser")
+            captcha_img = str(soup.find("img", {"alt": "captcha"}))
+            _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
+            raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
 
         # 2. /u/login/password w/ password
 
