@@ -260,7 +260,7 @@ class OAuth2Client:
         if resp.status_code == 400:
             _LOGGER.debug(f"Captcha required.")
             soup = BeautifulSoup(resp.text, "html.parser")
-            captcha_img = str(soup.find("img", {"alt": "captcha"}))
+            captcha_img = soup.find("img", {"alt": "captcha"})["src"]
             _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
             raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
 
