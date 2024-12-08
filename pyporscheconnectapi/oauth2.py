@@ -3,7 +3,9 @@ import asyncio
 import logging
 import time
 import httpx
+import base64
 
+from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
 from collections import namedtuple
 
@@ -30,6 +32,7 @@ from .exceptions import (
 _LOGGER = logging.getLogger(__name__)
 
 Credentials = namedtuple("Credentials", ["email", "password"])
+Captcha = namedtuple("Captcha", ["captcha_code", "state"])
 
 
 class OAuth2Token(dict):
@@ -82,10 +85,15 @@ class OAuth2Client:
     """
 
     def __init__(
-        self, client: httpx.AsyncClient, credentials: Credentials, leeway: int = 60
+        self,
+        client: httpx.AsyncClient,
+        credentials: Credentials,
+        captcha: Captcha,
+        leeway: int = 60,
     ):
         self.client = client
         self.credentials = credentials
+        self.captcha = captcha
         self.leeway = leeway
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
 
@@ -122,40 +130,60 @@ class OAuth2Client:
 
         :return: authorization code to be exchanged for an access token
         """
-        try:
-            # first request to get the code
-            params = await self.get_and_extract_location_params(
-                AUTHORIZATION_URL,
-                params={
-                    "response_type": "code",
-                    "client_id": CLIENT_ID,
-                    "redirect_uri": REDIRECT_URI,
-                    "audience": AUDIENCE,
-                    "scope": SCOPE,
-                    "state": "pyporscheconnectapi",
-                },
-            )
-            authorization_code = params.get("code", [None])[0]
+        if self.captcha.captcha_code is None:
+            try:
+                _LOGGER.debug(f"Fetching authorization code.")
 
-            # if we already have a session with Auth, just use the code they return
-            if authorization_code is not None:
+                # first request to get the code
+                params = await self.get_and_extract_location_params(
+                    AUTHORIZATION_URL,
+                    params={
+                        "response_type": "code",
+                        "client_id": CLIENT_ID,
+                        "redirect_uri": REDIRECT_URI,
+                        "audience": AUDIENCE,
+                        "scope": SCOPE,
+                        "state": "pyporscheconnectapi",
+                    },
+                )
+                authorization_code = params.get("code", [None])[0]
+
+                # if we already have a session with Auth, just use the code they return
+                if authorization_code is not None:
+                    _LOGGER.debug(f"Got authorization code: {authorization_code}")
+                    return authorization_code
+
+                # no existing Auth0 session, run through Identifier First flow
+                _LOGGER.debug(
+                    f"No existing auth0 session, running through identifier first flow."
+                )
+
+                resume_path = await self.login_with_identifier(params["state"][0])
+
+                # completed the Identifier First flow, now resume the auth code request
+                params = await self.get_and_extract_location_params(
+                    f"https://{AUTHORIZATION_SERVER}{resume_path}"
+                )
+                authorization_code = params.get("code", [None])[0]
                 _LOGGER.debug(f"Authorization code: {authorization_code}")
+
                 return authorization_code
 
-            # no existing Auth0 session, run through Identifier First flow
-            resume_path = await self.login_with_identifier(params["state"][0])
+            except httpx.HTTPStatusError as exception_:
+                raise PorscheException(exception_.response.status_code)
+        else:
+            try:
+                resume_path = await self.login_with_identifier(self.captcha.state)
+                params = await self.get_and_extract_location_params(
+                    f"https://{AUTHORIZATION_SERVER}{resume_path}"
+                )
+                authorization_code = params.get("code", [None])[0]
+                _LOGGER.debug(f"Authorization code: {authorization_code}")
 
-            # completed the Identifier First flow, now resume the auth code request
-            params = await self.get_and_extract_location_params(
-                f"https://{AUTHORIZATION_SERVER}{resume_path}"
-            )
-            authorization_code = params.get("code", [None])[0]
-            _LOGGER.debug(f"Authorization code: {authorization_code}")
+                return authorization_code
 
-            return authorization_code
-
-        except httpx.HTTPStatusError as exception_:
-            raise PorscheException(exception_.response.status_code)
+            except httpx.HTTPStatusError as exception_:
+                raise PorscheException(exception_.response.status_code)
 
     async def get_and_extract_location_params(self, url, params={}):
         """
@@ -196,7 +224,8 @@ class OAuth2Client:
         :return: URL to resume the auth code request
         """
 
-        # 1. /u/login/identifier w/ email
+        # 1. /u/login/identifier w/ email (and captcha code)
+
         data = {
             "state": state,
             "username": self.credentials.email,
@@ -206,6 +235,14 @@ class OAuth2Client:
             "webauthn-platform-available": False,
             "action": "default",
         }
+
+        if self.captcha.captcha_code is None:
+            _LOGGER.debug(f"Submitting e-mail address to auth endpoint.")
+        else:
+            data.update({"captcha": self.captcha.captcha_code})
+            _LOGGER.debug(
+                f"Submitting e-mail address and captcha code {self.captcha.captcha_code} to auth endpoint."
+            )
 
         url = f"https://{AUTHORIZATION_SERVER}/u/login/identifier"
         resp = await self.client.post(
@@ -221,11 +258,16 @@ class OAuth2Client:
 
         # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
         if resp.status_code == 400:
-            html_body = resp.text
-            _LOGGER.debug(html_body)
-            raise PorscheCaptchaRequired("Captcha required")
+            _LOGGER.debug(f"Captcha required.")
+            soup = BeautifulSoup(resp.text, "html.parser")
+            captcha_img = soup.find("img", {"alt": "captcha"})["src"]
+            _LOGGER.debug(f"Parsed out SVG captcha: {captcha_img}")
+            raise PorscheCaptchaRequired(captcha=captcha_img, state=state)
 
         # 2. /u/login/password w/ password
+
+        _LOGGER.debug(f"Submitting password to auth endpoint.")
+
         data = {
             "state": state,
             "username": self.credentials.email,
@@ -244,6 +286,7 @@ class OAuth2Client:
 
         # In case of wrong password, the response code is 400 (Bad request)
         if resp.status_code == 400:
+            _LOGGER.debug(f"Invalid credentials.")
             raise PorscheWrongCredentials("Wrong credentials")
 
         resume_url = resp.headers["Location"]
@@ -269,6 +312,8 @@ class OAuth2Client:
         }
 
         try:
+            _LOGGER.debug(f"Exchanging the authorization code for an access token.")
+
             resp = await self.client.post(
                 TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers
             )
@@ -291,6 +336,8 @@ class OAuth2Client:
             "refresh_token": refresh_token,
         }
         try:
+            _LOGGER.debug(f"Using the refresh token to get a new access token.")
+
             resp = await self.client.post(
                 TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers
             )

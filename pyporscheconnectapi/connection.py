@@ -9,7 +9,7 @@ import asyncio
 from typing import Text
 
 import httpx
-from .oauth2 import OAuth2Token, OAuth2Client, Credentials
+from .oauth2 import OAuth2Token, OAuth2Client, Credentials, Captcha
 from .const import API_BASE_URL, TIMEOUT, USER_AGENT, X_CLIENT_ID, CLIENT_ID
 
 from typing import Optional
@@ -40,6 +40,8 @@ class Connection:
         self,
         email: Optional[Text] = None,
         password: Optional[Text] = None,
+        captcha_code: Optional[Text] = None,
+        state: Optional[Text] = None,
         asyncClient=httpx.AsyncClient(),
         token={},
         leeway: int = 60,
@@ -52,7 +54,10 @@ class Connection:
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
 
         self.oauth2_client = OAuth2Client(
-            self.asyncClient, Credentials(email, password), leeway
+            self.asyncClient,
+            Credentials(email, password),
+            Captcha(captcha_code, state),
+            leeway,
         )
 
     async def get_token(self):
