@@ -50,10 +50,20 @@ class PorscheWrongCredentials(PorscheException):
     pass
 
 
-class PorscheCaptchaRequired(PorscheException):
+class PorscheCaptchaRequired(Exception):
     """Class of exception when captcha verification is required."""
 
-    pass
+    captcha: str = None
+    state: str = None
+
+    def __init__(self, captcha=None, state=None):
+        """Initialize the captcha exception."""
+        if captcha is not None and state is not None:
+            _LOGGER.info(f"Initialising captcha exception: {captcha}, {state}")
+            self.captcha = captcha
+            self.state = state
+
+        super().__init__(captcha, state)
 
 
 class PorscheRemoteServiceError(PorscheException):
