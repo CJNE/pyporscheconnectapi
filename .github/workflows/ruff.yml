@@ -1,2 +1,0 @@
-- name: ruff-action
-  uses: astral-sh/ruff-action@v2.0.0
