@@ -1,17 +1,17 @@
-from typing import Optional
+"""Trigger remote services on a vehicle."""
+from __future__ import annotations
 
-import logging
-import datetime
 import asyncio
-from .exceptions import PorscheRemoteServiceError
-
-from hashlib import sha512
+import datetime
+import logging
 from enum import Enum
+from hashlib import sha512
 from typing import TYPE_CHECKING
+
+from .exceptions import PorscheRemoteServiceError
 
 if TYPE_CHECKING:
     from .vehicle import PorscheVehicle
-
 _LOGGER = logging.getLogger(__name__)
 
 #: time in seconds between receiving status and polling for update
@@ -35,7 +35,8 @@ class StrEnum(str, Enum):
         if has_unknown:
             _LOGGER.warning("'%s' is not a valid '%s'", value, cls.__name__)
             return cls.UNKNOWN
-        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+        msg = f"'{value}' is not a valid {cls.__name__}"
+        raise ValueError(msg)
 
 
 class ExecutionState(StrEnum):
@@ -49,7 +50,7 @@ class ExecutionState(StrEnum):
 class RemoteServiceStatus:
     """Wraps the status of the execution of a remote service."""
 
-    def __init__(self, response: dict, status_id: Optional[str] = None):
+    def __init__(self, response: dict, status_id: str | None = None) -> None:
         """Construct a new object from a dict."""
         status = None
         if "status" in response:
@@ -64,14 +65,16 @@ class RemoteServiceStatus:
 class RemoteServices:
     """Trigger remote services on a vehicle."""
 
-    def __init__(self, vehicle: "PorscheVehicle"):
+    def __init__(self, vehicle: PorscheVehicle):
+        """Initialise the Remote Services on a Porsche Connect vehicle."""
         self._vehicle = vehicle
         self._connection = vehicle.connection
 
     async def flash_indicators(
         self,
     ):
-        _LOGGER.debug(f"Requesting vehicle {self._vehicle.vin} to flash indicators.")
+        """Remote service for flashing the indicators briefly."""
+        _LOGGER.debug("Requesting vehicle %s to flash indicators.", self._vehicle.vin)
 
         payload = {
             "key": "HONK_FLASH",
@@ -81,14 +84,14 @@ class RemoteServices:
             },
         }
 
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def honk_and_flash_indicators(
         self,
     ):
+        """Remote service for honking and flashing the indicators briefly."""
         _LOGGER.debug(
-            f"Requesting vehicle {self._vehicle.vin} to honk and flash indicators."
+            "Requesting vehicle %s to honk and flash indicators.", self._vehicle.vin,
         )
 
         payload = {
@@ -99,80 +102,77 @@ class RemoteServices:
             },
         }
 
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def climatise_on(
         self,
-        targetTemperature: float = 293.15,
-        frontLeft: bool = False,
-        frontRight: bool = False,
-        rearLeft: bool = False,
-        rearRight: bool = False,
+        *,
+        target_temperature: float = 293.15,
+        front_left: bool = False,
+        front_right: bool = False,
+        rear_left: bool = False,
+        rear_right: bool = False,
     ):
-        _LOGGER.debug(f"Starting remote climatisation for {self._vehicle.vin}")
+        """Remote service for turning climatisation on."""
+        _LOGGER.debug("Starting remote climatisation for %s", self._vehicle.vin)
 
         payload = {
             "key": "REMOTE_CLIMATIZER_START",
             "payload": {
                 "climateZonesEnabled": {
-                    "frontLeft": frontLeft,
-                    "frontRight": frontRight,
-                    "rearLeft": rearLeft,
-                    "rearRight": rearRight,
+                    "frontLeft": front_left,
+                    "frontRight": front_right,
+                    "rearLeft": rear_left,
+                    "rearRight": rear_right,
                 },
-                "targetTemperature": targetTemperature,
+                "targetTemperature": target_temperature,
             },
         }
 
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def climatise_off(
         self,
     ):
-        _LOGGER.debug(f"Stopping remote climatisation for {self._vehicle.vin}")
+        """Remote service for turning climatisation off."""
+        _LOGGER.debug("Stopping remote climatisation for %s", self._vehicle.vin)
 
         payload = {"key": "REMOTE_CLIMATIZER_STOP", "payload": {}}
 
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def direct_charge_on(
         self,
     ):
-        _LOGGER.debug(f"Enabling direct charging for {self._vehicle.vin}")
+        """Remote service for turning direct charging on."""
+        _LOGGER.debug("Enabling direct charging for %s", self._vehicle.vin)
 
         payload = {"key": "DIRECT_CHARGING_START", "payload": {"spin": None}}
 
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def direct_charge_off(
         self,
     ):
-        _LOGGER.debug(f"Disabling direct charging for {self._vehicle.vin}")
-
+        """Remote service for turning direct charging off."""
+        _LOGGER.debug("Disabling direct charging for %s", self._vehicle.vin)
         payload = {"key": "DIRECT_CHARGING_STOP", "payload": {"spin": None}}
-
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def lock_vehicle(
         self,
     ):
-        _LOGGER.debug(f"Locking vehicle {self._vehicle.vin}")
-
+        """Remote service for locking a vehicle."""
+        _LOGGER.debug("Locking vehicle %s", self._vehicle.vin)
         payload = {"key": "LOCK", "payload": {"spin": None}}
-
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def unlock_vehicle(
         self,
         pin,
     ):
-        _LOGGER.debug(f"Unlocking vehicle {self._vehicle.vin}")
+        """Remote service for unlocking a vehicle."""
+        _LOGGER.debug("Unlocking vehicle %s", self._vehicle.vin)
 
         challenge = await self._get_challenge()
 
@@ -184,37 +184,38 @@ class RemoteServices:
                 "payload": {"spin": {"challenge": challenge, "hash": pinhash}},
             }
 
-            result = await self._send_command(payload)
-            return result
+            return await self._send_command(payload)
+        return None
 
-    async def updateChargingProfile(
+    async def update_charging_profile(
         self,
-        profileId: Optional[int] = None,
-        minimumChargeLevel: Optional[int] = None,
+        profile_id: int | None = None,
+        minimum_charge_level: int | None = None,
     ):
+        """Remote service for altering a charging profile."""
         chargingprofileslist = self._vehicle.data["CHARGING_PROFILES"]["list"]
-        _LOGGER.debug(f"Charging profile list: {chargingprofileslist}")
+        _LOGGER.debug("Charging profile list: %s", chargingprofileslist)
 
-        if profileId is None:
-            profileId = self._vehicle.data["BATTERY_CHARGING_STATE"]["activeProfileId"]
+        if profile_id is None:
+            profile_id = self._vehicle.data["BATTERY_CHARGING_STATE"]["activeProfileId"]
 
-        _LOGGER.debug(f"Active profile id: {profileId}")
+        _LOGGER.debug("Active profile id: %s", profile_id)
 
-        if minimumChargeLevel is not None:
-            minimumChargeLevel = min(max(int(minimumChargeLevel), 25), 100)
+        if minimum_charge_level is not None:
+            minimum_charge_level = min(max(int(minimum_charge_level), 25), 100)
             for i, item in enumerate(chargingprofileslist):
-                if profileId == item["id"]:
-                    item["minSoc"] = minimumChargeLevel
+                if profile_id == item["id"]:
+                    item["minSoc"] = minimum_charge_level
                     chargingprofileslist[i] = item
 
-        return await self._updateChargingProfile(chargingprofileslist)
+        return await self._update_charging_profile(chargingprofileslist)
 
     async def _get_challenge(
         self,
     ):
         payload = {"key": "SPIN_CHALLENGE", "payload": {"spin": None}}
 
-        _LOGGER.debug(f"Requesting challenge for {self._vehicle.vin}")
+        _LOGGER.debug("Requesting challenge for %s", self._vehicle.vin)
 
         response = await self._connection.post(
             f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
@@ -223,7 +224,7 @@ class RemoteServices:
 
         return response.get("data", {}).get("challenge")
 
-    async def _updateChargingProfile(
+    async def _update_charging_profile(
         self,
         chargingprofileslist,
     ):
@@ -231,16 +232,15 @@ class RemoteServices:
             "key": "CHARGING_PROFILES_EDIT",
             "payload": {"list": chargingprofileslist},
         }
-        _LOGGER.debug(f"Updating charging profile for {self._vehicle.vin}")
+        _LOGGER.debug("Updating charging profile for %s.", self._vehicle.vin)
 
-        result = await self._send_command(payload)
-        return result
+        return await self._send_command(payload)
 
     async def _send_command(
         self,
         payload,
     ):
-        _LOGGER.debug(f"Executing remote command with payload {payload}")
+        _LOGGER.debug("Executing remote command with payload %s", payload)
 
         response = await self._connection.post(
             f"/connect/v1/vehicles/{self._vehicle.vin}/commands",
@@ -251,8 +251,9 @@ class RemoteServices:
             status_id = response.get("status", {}).get("id")
             result_code = response.get("status", {}).get("result")
         else:
+            msg = "Did not receive response for remote service request"
             raise PorscheRemoteServiceError(
-                "Did not receive response for remote service request"
+                msg,
             )
 
         _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
@@ -273,18 +274,18 @@ class RemoteServices:
 
         :raises TimeoutError: if there is no final answer before _POLLING_TIMEOUT
         """
-
-        fail_after = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-            seconds=_POLLING_TIMEOUT
+        fail_after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+            seconds=_POLLING_TIMEOUT,
         )
         status = None
-        while datetime.datetime.now(datetime.timezone.utc) < fail_after:
+        while datetime.datetime.now(datetime.UTC) < fail_after:
             await asyncio.sleep(_POLLING_DELAY)
             status = await self._get_remote_service_status(status_id)
             _LOGGER.debug("Current state of '%s' is: %s", status_id, status.state.value)
             if status.state == ExecutionState.ERROR:
+                msg = f"Remote service failed with state '{status.details}'"
                 raise PorscheRemoteServiceError(
-                    f"Remote service failed with state '{status.details}'"
+                    msg,
                 )
             if status.state not in [
                 ExecutionState.UNKNOWN,
@@ -293,17 +294,19 @@ class RemoteServices:
         current_state = "Unknown"
         if status is not None:
             current_state = status.state.value
-        raise PorscheRemoteServiceError(
+        msg = (
             f"Did not receive remote service result for '{status_id}' in {_POLLING_TIMEOUT} seconds. "
             f"Current state: {current_state}"
+        )
+        raise PorscheRemoteServiceError(
+            msg,
         )
 
     async def _get_remote_service_status(self, status_id: str) -> RemoteServiceStatus:
         """Return execution status of the last remote service that was triggered."""
-
         _LOGGER.debug("Getting remote service status for '%s'", status_id)
         status_msg = await self._connection.get(
-            f"/connect/v1/vehicles/{self._vehicle.vin}/commands/{status_id}"
+            f"/connect/v1/vehicles/{self._vehicle.vin}/commands/{status_id}",
         )
         _LOGGER.debug("Got status message %s for '%s'", status_msg, status_id)
         return RemoteServiceStatus(status_msg, status_id=status_id)

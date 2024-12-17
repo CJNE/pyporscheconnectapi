@@ -1,23 +1,26 @@
-from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.vehicle import PorscheVehicle
+"""Accesses Porsche Connect account and retrieves connected vehicles."""
+from __future__ import annotations
 
 import logging
 
-from typing import List, Optional
-
+from pyporscheconnectapi.connection import Connection
+from pyporscheconnectapi.vehicle import PorscheVehicle
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class PorscheConnectAccount:
+    """Establishes a connection to a Porsche Connect account."""
+
     def __init__(
         self,
-        username="",
-        password="",
-        token={},
-        connection: Optional[Connection] = None,
-    ):
-        self.vehicles: List[PorscheVehicle] = []
+        username: str | None = None,
+        password: str | None = None,
+        token: dict | None = None,
+        connection: Connection | None = None,
+    ) -> None:
+        """Initialize the account."""
+        self.vehicles: list[PorscheVehicle] = []
         self.token = token
         if connection is None:
             self.connection = Connection(username, password, token=token)
@@ -32,7 +35,7 @@ class PorscheConnectAccount:
             vehicle_list = await self.connection.get("/connect/v1/vehicles")
 
             for vehicle in vehicle_list:
-                _LOGGER.debug(f"Got vehicle {vehicle}")
+                _LOGGER.debug("Got vehicle %s", vehicle)
                 v = PorscheVehicle(
                     vin=vehicle["vin"],
                     data=vehicle,
@@ -43,9 +46,8 @@ class PorscheConnectAccount:
 
             self.token = self.connection.token
 
-    async def get_vehicles(self, force_init: bool = False) -> List[PorscheVehicle]:
-        """Retrieve vehicle data from API endpoints."""
-
+    async def get_vehicles(self, *, force_init: bool = False) -> list[PorscheVehicle]:
+        """Retrieve available vehicles from API endpoints."""
         _LOGGER.debug("Retrieving vehicle list")
 
         if len(self.vehicles) == 0 or force_init:
@@ -53,7 +55,8 @@ class PorscheConnectAccount:
 
         return self.vehicles
 
-    async def get_vehicle(self, vin: str) -> Optional[PorscheVehicle]:
+    async def get_vehicle(self, vin: str) -> PorscheVehicle | None:
+        """Retrieve vehicle data from API endpoints."""
         if len(self.vehicles) == 0:
             await self._init_vehicles()
         filtered = [v for v in self.vehicles if v.vin == vin]

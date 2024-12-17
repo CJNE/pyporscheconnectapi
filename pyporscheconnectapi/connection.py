@@ -1,33 +1,28 @@
 #  SPDX-License-Identifier: Apache-2.0
-"""
-Python Package for controlling Porsche Connect API.
+"""Python Package for controlling Porsche Connect API."""
+from __future__ import annotations
 
-"""
-
-import logging
 import asyncio
-from typing import Text
+import logging
 
 import httpx
-from .oauth2 import OAuth2Token, OAuth2Client, Credentials, Captcha
-from .const import API_BASE_URL, TIMEOUT, USER_AGENT, X_CLIENT_ID, CLIENT_ID
 
-from typing import Optional
-
-from .exceptions import PorscheException
+from .const import API_BASE_URL, TIMEOUT, USER_AGENT, X_CLIENT_ID
+from .exceptions import PorscheExceptionError
+from .oauth2 import Captcha, Credentials, OAuth2Client, OAuth2Token
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def log_request(request):
-    _LOGGER.debug(f"Request headers: {request.headers}")
-    _LOGGER.debug(f"Request method - url: {request.method} {request.url}")
-    _LOGGER.debug(f"Request body: {request.content}")
+    """Provide formatting for http logging."""
+    _LOGGER.debug("Request headers: %s", request.headers)
+    _LOGGER.debug("Request method - url: %s %s", request.method, request.url)
+    _LOGGER.debug("Request body: %s", request.content)
 
 
 class Connection:
-    """
-    Handles authentication and connecting to the Porsche Connect API
+    """Handles authentication and connecting to the Porsche Connect API.
 
     :param email: Porsche Connect email
     :param password: Porsche Connect password
@@ -38,15 +33,18 @@ class Connection:
 
     def __init__(
         self,
-        email: Optional[Text] = None,
-        password: Optional[Text] = None,
-        captcha_code: Optional[Text] = None,
-        state: Optional[Text] = None,
-        asyncClient=httpx.AsyncClient(),
-        token={},
+        email: str | None = None,
+        password: str | None = None,
+        captcha_code: str | None = None,
+        state: str | None = None,
+        async_client=httpx.AsyncClient(),
+        token=None,
         leeway: int = 60,
     ) -> None:
-        self.asyncClient = asyncClient
+        """Initialise the connection to the Porsche Connect API."""
+        if token is None:
+            token = {}
+        self.asyncClient = async_client
         self.token_lock = asyncio.Lock()
 
         self.token = OAuth2Token(token)
@@ -61,23 +59,29 @@ class Connection:
         )
 
     async def get_token(self):
+        """Return the authentication token."""
         async with self.token_lock:
             await self.oauth2_client.ensure_valid_token(self.token)
         return self.token
 
     async def get(self, url, params=None):
+        """Make a GET request to the Porsche Connect API."""
         return await self.request("GET", url, params=params)
 
     async def post(self, url, data=None, json=None):
+        """Make a POST request to the Porsche Connect API."""
         return await self.request("POST", url, data=data, json=json)
 
     async def put(self, url, data=None, json=None):
+        """Make a PUT request to the Porsche Connect API."""
         return await self.request("PUT", url, data=data, json=json)
 
     async def delete(self, url, data=None, json=None):
+        """Make a DELETE request to the Porsche Connect API."""
         return await self.request("DELETE", url, data=data, json=json)
 
     async def request(self, method, url, **kwargs):
+        """Create a request to the Porsche Connect API."""
         try:
             async with self.token_lock:
                 await self.oauth2_client.ensure_valid_token(self.token)
@@ -91,9 +95,9 @@ class Connection:
             )
             resp.raise_for_status()  # A common error seem to be: httpx.HTTPStatusError: Server error '504 Gateway Time-out'
             return resp.json()
-        except httpx.HTTPStatusError as exception_:
-            raise PorscheException(exception_.response.status_code)
+        except httpx.HTTPStatusError as exc:
+            raise PorscheExceptionError(exc.response.status_code) from exc
 
     async def close(self):
-        """Close the asyncClient connection"""
+        """Close the asyncClient connection."""
         await self.asyncClient.aclose()
