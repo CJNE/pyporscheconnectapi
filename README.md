@@ -49,26 +49,27 @@ Porsche Connect CLI
 positional arguments:
   {list,token,capabilities,currentoverview,storedoverview,trip_statistics,pictures,location,climatise_on,climatise_off,direct_charge_on,direct_charge_off,flash_indicators,honk_and_flash,lock_vehicle,unlock_vehicle,vehicle_closed,doors_and_lids,tire_pressure_status,tire_pressures,chargingprofile}
                         command help
+    battery             Prints the main battery level (BEV)
     capabilities        Get vehicle capabilities
-    currentoverview     Get stored overview for vehicle
-    storedoverview      Poll vehicle for current overview
-    trip_statistics     Get trip statistics from backend
-    pictures            Get vehicle pictures url
-    location            Show location of vehicle
-    climatise_on        Start remote climatisation
+    chargingprofile     Update parameters in configured charging profile
     climatise_off       Stop remote climatisation
-    direct_charge_on    Enable direct charging
+    climatise_on        Start remote climatisation
+    connected           Check if vehicle is on-line
+    currentoverview     Get stored overview for vehicle
     direct_charge_off   Disable direct charging
+    direct_charge_on    Enable direct charging
+    doors_and_lids      List status of all doors and lids
     flash_indicators    Flash indicators
     honk_and_flash      Flash indicators and sound the horn
+    location            Show location of vehicle
     lock_vehicle        Lock vehicle
+    pictures            Get vehicle pictures url
+    storedoverview      Poll vehicle for current overview
+    tire_status         Check if tire pressure are ok
+    tire_pressures      Get tire pressure readings
+    trip_statistics     Get trip statistics from backend
     unlock_vehicle      Unlock vehicle
     vehicle_closed      Check if all doors and lids are closed
-    doors_and_lids      List status of all doors and lids
-    tire_pressure_status
-                        Check if tire pressure are ok
-    tire_pressures      Get tire pressure readings
-    chargingprofile     Update parameters in configured charging profile
 
 options:
   -h, --help            show this help message and exit
