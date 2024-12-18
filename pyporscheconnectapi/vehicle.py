@@ -1,11 +1,11 @@
 """Models the state of a Porsche Connect vehicle."""
 from __future__ import annotations
 
+import datetime
 import json  # only for formatting debug output
 import logging
 import re
 import uuid
-from datetime import datetime
 
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import PorscheExceptionError
@@ -222,7 +222,7 @@ class PorscheVehicle:
         """Return time stamp of latest location update."""
         datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
         if datetime_str:
-            return datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ").astimezone(datetime.timezone.utc)
+            return datetime.datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ").astimezone(datetime.timezone.utc)
         return None
 
     @property
