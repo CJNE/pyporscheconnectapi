@@ -1,17 +1,14 @@
 #  SPDX-License-Identifier: Apache-2.0
-"""
-Python Package for controlling Porsche Connect API.
-
-"""
+"""Exceptions used for Porsche Connect API."""
 import logging
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class PorscheException(Exception):
+class PorscheExceptionError(Exception):
     """Class of Porsche API exceptions."""
 
-    def __init__(self, code=None, *args, **kwargs):
+    def __init__(self, code=None, *args, **kwargs) -> None:
         """Initialize exceptions for the Porsche API."""
         self.message = ""
         super().__init__(*args, **kwargs)
@@ -44,13 +41,11 @@ class PorscheException(Exception):
                 self.message = f"UNKNOWN_ERROR_{self.code}"
 
 
-class PorscheWrongCredentials(PorscheException):
+class PorscheWrongCredentialsError(PorscheExceptionError):
     """Class of exceptions for incomplete credentials."""
 
-    pass
 
-
-class PorscheCaptchaRequired(Exception):
+class PorscheCaptchaRequiredError(PorscheExceptionError):
     """Class of exception when captcha verification is required."""
 
     captcha: str = None
@@ -59,14 +54,12 @@ class PorscheCaptchaRequired(Exception):
     def __init__(self, captcha=None, state=None):
         """Initialize the captcha exception."""
         if captcha is not None and state is not None:
-            _LOGGER.info(f"Initialising captcha exception: {captcha}, {state}")
+            _LOGGER.info("Initialising captcha exception: %s, %s", captcha, state)
             self.captcha = captcha
             self.state = state
 
         super().__init__(captcha, state)
 
 
-class PorscheRemoteServiceError(PorscheException):
+class PorscheRemoteServiceError(PorscheExceptionError):
     """Error when executing remote services."""
-
-    pass

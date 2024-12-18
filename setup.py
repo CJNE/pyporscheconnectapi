@@ -1,6 +1,9 @@
 #!/usr/bin/env python
-from setuptools import setup
+"""Python package description."""
 
+from pathlib import Path
+
+from setuptools import setup
 
 setup(
     name="pyporscheconnectapi",
@@ -8,14 +11,14 @@ setup(
     author="Johan Isaksson",
     author_email="johan@generatorhallen.se",
     description="Python library and CLI for communicating with Porsche Connect API.",
-    long_description=open("README.md", "r").read(),
+    long_description=Path.open("README.md").read(),
     long_description_content_type="text/markdown",
     include_package_data=True,
     url="https://github.com/cjne/pyporscheconnectapi",
     license="MIT",
     packages=["pyporscheconnectapi"],
-    python_requires=">=3.6",
-    install_requires=["httpx<1","BeautifulSoup4"],
+    python_requires=">=3.9",
+    install_requires=["httpx<1","BeautifulSoup4","rich"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",

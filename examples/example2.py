@@ -1,17 +1,18 @@
-import asyncio
-from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.account import PorscheConnectAccount
-from sys import argv
-import logging
+"""Example code for using the pyporscheconnectapi library."""
 
-# logging.basicConfig()
-# logging.root.setLevel(logging.DEBUG)
+import asyncio
+import contextlib
+from sys import argv
+
+from pyporscheconnectapi.account import PorscheConnectAccount
+from pyporscheconnectapi.connection import Connection
 
 email = argv[1]
 password = argv[2]
 
 
 async def vehicles() -> None:
+    """Make request to the API and parse out batteri level and vehicle lock status."""
     conn = Connection(email, password)
     client = PorscheConnectAccount(connection=conn)
 
@@ -20,12 +21,12 @@ async def vehicles() -> None:
         vehicle = vehicle_obj.data
 
         print(
-            f"VIN: {vehicle['vin']}, Model: {vehicle['modelName']}, Year: {vehicle['modelType']['year']}"
+            f"VIN: {vehicle['vin']}, Model: {vehicle['modelName']}, Year: {vehicle['modelType']['year']}",
         )
         mf = ["BATTERY_LEVEL", "LOCK_STATE_VEHICLE"]
         measurements = "mf=" + "&mf=".join(mf)
         data = await conn.get(
-            f"/connect/v1/vehicles/{vehicle['vin']}?{measurements}"
+            f"/connect/v1/vehicles/{vehicle['vin']}?{measurements}",
         )
 
         soc = (next((x for x in data["measurements"] if x["key"] == mf[0]), None))[
@@ -44,7 +45,5 @@ async def vehicles() -> None:
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         loop.run_until_complete(vehicles())
-    except KeyboardInterrupt:
-        pass
