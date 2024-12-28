@@ -1,4 +1,5 @@
 """Models the state of a Porsche Connect vehicle."""
+
 from __future__ import annotations
 
 import datetime
@@ -89,10 +90,7 @@ class PorscheVehicle:
     @property
     def has_electric_drivetrain(self) -> bool:
         """Return True if vehicle is equipped with a high voltage battery."""
-        return (
-            self.data["modelType"]["engine"] == "BEV"
-            or self.data["modelType"]["engine"] == "PHEV"
-        )
+        return self.data["modelType"]["engine"] == "BEV" or self.data["modelType"]["engine"] == "PHEV"
 
     @property
     def main_battery_level(self) -> int:
@@ -105,10 +103,7 @@ class PorscheVehicle:
     @property
     def has_ice_drivetrain(self) -> bool:
         """Return True if vehicle has an internal combustion engine."""
-        return (
-            self.data["modelType"]["engine"] == "PHEV"
-            or self.data["modelType"]["engine"] == "COMBUSTION"
-        )
+        return self.data["modelType"]["engine"] == "PHEV" or self.data["modelType"]["engine"] == "COMBUSTION"
 
     @property
     def has_remote_climatisation(self) -> bool:
@@ -125,10 +120,7 @@ class PorscheVehicle:
     @property
     def direct_charge_on(self) -> bool:
         """Return True if direct charging is enabled."""
-        return (
-            self.data.get("BATTERY_CHARGING_STATE", {}).get("directChargingState")
-            == "ENABLED_ON"
-        )
+        return self.data.get("BATTERY_CHARGING_STATE", {}).get("directChargingState") == "ENABLED_ON"
 
     @property
     def privacy_mode(self) -> bool:
@@ -138,6 +130,8 @@ class PorscheVehicle:
     @property
     def remote_climatise_on(self) -> bool:
         """Return True if remote climatisation is on."""
+        _LOGGER.debug("Remote climatisation is: %s", self.data.get("CLIMATIZER_STATE", {}).get("isOn"))
+
         return self.data.get("CLIMATIZER_STATE", {}).get("isOn")
 
     @property
@@ -150,22 +144,14 @@ class PorscheVehicle:
         """Return True if all doors and lids are closed."""
         return not bool(
             sum(
-                [
-                    self.data[key]["isOpen"]
-                    for key in self.data
-                    if key.startswith("OPEN_STATE_")
-                ],
+                [self.data[key]["isOpen"] for key in self.data if key.startswith("OPEN_STATE_")],
             ),
         )
 
     @property
     def doors_and_lids(self) -> bool:
         """Return list of all doors and lids and their status."""
-        dl = [
-            {key: "Open" if self.data[key]["isOpen"] is True else "Closed"}
-            for key in self.data
-            if key.startswith("OPEN_STATE_")
-        ]
+        dl = [{key: "Open" if self.data[key]["isOpen"] is True else "Closed"} for key in self.data if key.startswith("OPEN_STATE_")]
         return dict(map(dict.popitem, dl))
 
     @property
@@ -176,11 +162,7 @@ class PorscheVehicle:
             not sorted(
                 map(
                     abs,
-                    [
-                        tire_pressure_status[key]["differenceBar"]
-                        for key in tire_pressure_status
-                        if key.endswith("Tire")
-                    ],
+                    [tire_pressure_status[key]["differenceBar"] for key in tire_pressure_status if key.endswith("Tire")],
                 ),
             )[-1]
             > TIRE_PRESSURE_TOLERANCE
@@ -202,7 +184,8 @@ class PorscheVehicle:
         if self.data.get("CHARGING_PROFILES"):
             charging_profiles = self.data["CHARGING_PROFILES"]["list"]
             active_charging_profile_id = self.data["BATTERY_CHARGING_STATE"].get(
-                "activeProfileId", None,
+                "activeProfileId",
+                None,
             )
 
             if active_charging_profile_id is None:
@@ -337,9 +320,7 @@ class PorscheVehicle:
 
             bdata = {k: self.status[k] for k in BASE_DATA}
 
-            bdata["name"] = (
-                bdata["customName"] if "customName" in bdata else bdata["modelName"]
-            )
+            bdata["name"] = bdata["customName"] if "customName" in bdata else bdata["modelName"]
 
             _LOGGER.debug(
                 "Got base data for vehicle '%s': %s",
@@ -348,9 +329,7 @@ class PorscheVehicle:
             )
 
             if "measurements" in self.status:
-                tdata = [
-                    m for m in self.status["measurements"] if m["status"]["isEnabled"]
-                ]
+                tdata = [m for m in self.status["measurements"] if m["status"]["isEnabled"]]
 
                 for m in tdata:
                     mdata[m["key"]] = m["value"]
@@ -365,9 +344,7 @@ class PorscheVehicle:
                 if "BATTERY_CHARGING_STATE" in mdata:
                     if "chargingRate" in mdata["BATTERY_CHARGING_STATE"]:
                         # Convert charging rate from km/min to km/h
-                        mdata["BATTERY_CHARGING_STATE"]["chargingRate"] = (
-                            mdata["BATTERY_CHARGING_STATE"]["chargingRate"] * 60
-                        )
+                        mdata["BATTERY_CHARGING_STATE"]["chargingRate"] = mdata["BATTERY_CHARGING_STATE"]["chargingRate"] * 60
                     else:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
                         mdata["BATTERY_CHARGING_STATE"]["chargingRate"] = 0
