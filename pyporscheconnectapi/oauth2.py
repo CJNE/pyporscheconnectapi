@@ -30,11 +30,13 @@ from .exceptions import (
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class Credentials(NamedTuple):
     """Store credentials for the Porsche Connect API."""
 
     email: str
     password: str
+
 
 class Captcha(NamedTuple):
     """Store captcha data for the Porsche Connect API."""
@@ -117,9 +119,7 @@ class OAuth2Client:
             token.update(token_data)
             token.expires_at = token_data["expires_in"]
             _LOGGER.debug("Refreshed Access Token: %s", token.access_token)
-        if (
-            token.access_token is None or token_is_expired is None
-        ):  # no token, get a new one
+        if token.access_token is None or token_is_expired is None:  # no token, get a new one
             auth_code = await self.fetch_authorization_code()
             token_data = await self.fetch_access_token(auth_code)
             token.update(token_data)
@@ -207,7 +207,10 @@ class OAuth2Client:
         if params is None:
             params = {}
         resp = await self.client.get(
-            url, params=params, timeout=TIMEOUT, headers=self.headers,
+            url,
+            params=self._merge_query_params(url, params),
+            timeout=TIMEOUT,
+            headers=self.headers,
         )
         if resp.status_code != 302:
             msg = "Could not fetch authorization code"
@@ -223,6 +226,14 @@ class OAuth2Client:
         :return: dict of query parameters
         """
         return parse_qs(urlparse(url).query)
+
+    def _merge_query_params(self, url: str, params: dict[str, str]) -> dict[str, str]:
+        """Merge query parameters into a new dictionary with the existing query parameters of a URL."""
+        parsed_url = urlparse(url)
+        query = parse_qs(parsed_url.query)
+        new_query = {k: v[0] for k, v in query.items()}
+        new_query.update(params)
+        return new_query
 
     async def login_with_identifier(self, state: str):
         """Log into the Identifier First flow.
@@ -328,7 +339,10 @@ class OAuth2Client:
             _LOGGER.debug("Exchanging the authorization code for an access token.")
 
             resp = await self.client.post(
-                TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers,
+                TOKEN_URL,
+                data=data,
+                timeout=TIMEOUT,
+                headers=self.headers,
             )
             resp.raise_for_status()
             return resp.json()
@@ -350,7 +364,10 @@ class OAuth2Client:
             _LOGGER.debug("Using the refresh token to get a new access token.")
 
             resp = await self.client.post(
-                TOKEN_URL, data=data, timeout=TIMEOUT, headers=self.headers,
+                TOKEN_URL,
+                data=data,
+                timeout=TIMEOUT,
+                headers=self.headers,
             )
             resp.raise_for_status()
             return resp.json()
