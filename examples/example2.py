@@ -29,12 +29,8 @@ async def vehicles() -> None:
             f"/connect/v1/vehicles/{vehicle['vin']}?{measurements}",
         )
 
-        soc = (next((x for x in data["measurements"] if x["key"] == mf[0]), None))[
-            "value"
-        ]["percent"]
-        locked = (next((x for x in data["measurements"] if x["key"] == mf[1]), None))[
-            "value"
-        ]["isLocked"]
+        soc = (next((x for x in data["measurements"] if x["key"] == mf[0]), None))["value"]["percent"]
+        locked = (next((x for x in data["measurements"] if x["key"] == mf[1]), None))["value"]["isLocked"]
 
         print(f"Battery level is at {soc}%")
         print(f"The vehicle is locked: {locked}")

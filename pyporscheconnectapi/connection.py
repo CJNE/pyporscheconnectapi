@@ -1,5 +1,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 """Python Package for controlling Porsche Connect API."""
+
 from __future__ import annotations
 
 import asyncio
@@ -88,8 +89,7 @@ class Connection:
             resp = await self.asyncClient.request(
                 method,
                 f"{API_BASE_URL}/{url}",
-                headers=self.headers
-                | {"Authorization": f"Bearer {self.token.access_token}"},
+                headers=self.headers | {"Authorization": f"Bearer {self.token.access_token}"},
                 timeout=TIMEOUT,
                 **kwargs,
             )

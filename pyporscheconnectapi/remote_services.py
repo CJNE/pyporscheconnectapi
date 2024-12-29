@@ -1,4 +1,5 @@
 """Trigger remote services on a vehicle."""
+
 from __future__ import annotations
 
 import asyncio
@@ -91,7 +92,8 @@ class RemoteServices:
     ):
         """Remote service for honking and flashing the indicators briefly."""
         _LOGGER.debug(
-            "Requesting vehicle %s to honk and flash indicators.", self._vehicle.vin,
+            "Requesting vehicle %s to honk and flash indicators.",
+            self._vehicle.vin,
         )
 
         payload = {
@@ -258,11 +260,7 @@ class RemoteServices:
 
         _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
 
-        status = (
-            await self._block_until_done(status_id)
-            if status_id and result_code == "ACCEPTED"
-            else RemoteServiceStatus(result_code)
-        )
+        status = await self._block_until_done(status_id) if status_id and result_code == "ACCEPTED" else RemoteServiceStatus(result_code)
 
         await asyncio.sleep(_POLLING_DELAY)
         await self._vehicle.get_stored_overview()
@@ -294,10 +292,7 @@ class RemoteServices:
         current_state = "Unknown"
         if status is not None:
             current_state = status.state.value
-        msg = (
-            f"Did not receive remote service result for '{status_id}' in {_POLLING_TIMEOUT} seconds. "
-            f"Current state: {current_state}"
-        )
+        msg = f"Did not receive remote service result for '{status_id}' in {_POLLING_TIMEOUT} seconds. Current state: {current_state}"
         raise PorscheRemoteServiceError(
             msg,
         )

@@ -1,5 +1,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 """Exceptions used for Porsche Connect API."""
+
 import logging
 
 _LOGGER = logging.getLogger(__name__)
