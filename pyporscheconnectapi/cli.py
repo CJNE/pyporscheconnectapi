@@ -281,8 +281,6 @@ def cli():
         default=config.get("porsche", "session_file"),
     )
 
-    parser.add_argument("--nowait", dest="nowait", action="store_true")
-
     subparsers.add_parser("list")
     subparsers.add_parser("token")
 

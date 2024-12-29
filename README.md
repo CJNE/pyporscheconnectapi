@@ -77,7 +77,6 @@ options:
   -e EMAIL, --email EMAIL
   -p PASSWORD, --password PASSWORD
   -s SESSION_FILE, --sessionfile SESSION_FILE
-  --nowait
 
 ```
 
