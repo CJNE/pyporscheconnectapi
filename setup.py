@@ -17,7 +17,7 @@ setup(
     url="https://github.com/cjne/pyporscheconnectapi",
     license="MIT",
     packages=["pyporscheconnectapi"],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=["httpx<1", "BeautifulSoup4", "rich"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
