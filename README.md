@@ -95,7 +95,7 @@ session_file=<file to store session information>
 
 ## Library usage
 
-Install pyporscheconnectapi using pip (requires python > 3.6)
+Install pyporscheconnectapi using pip (requires python >= 3.10)
 
 
 ### Example client usage
