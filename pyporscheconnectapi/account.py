@@ -1,4 +1,5 @@
 """Accesses Porsche Connect account and retrieves connected vehicles."""
+
 from __future__ import annotations
 
 import logging

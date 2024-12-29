@@ -1,9 +1,9 @@
 [tool.ruff]
-line-length = 160
+line-length = 160   
 
 [tool.ruff.lint]
 select = [ "ALL" ]
-ignore = [ "ANN", "PLR2004", "PLR0912", "PLR0913", "TC001", "C901", "B008" ]
+ignore = [ "ANN", "PLR2004", "PLR0912", "PLR0913", "TC001", "C901", "B008", "D203", "D213" ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "examples/*.py" = [ "INP001", "T201" ]

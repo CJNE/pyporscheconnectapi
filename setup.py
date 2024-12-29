@@ -18,7 +18,7 @@ setup(
     license="MIT",
     packages=["pyporscheconnectapi"],
     python_requires=">=3.9",
-    install_requires=["httpx<1","BeautifulSoup4","rich"],
+    install_requires=["httpx<1", "BeautifulSoup4", "rich"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",

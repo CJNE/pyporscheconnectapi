@@ -53,15 +53,18 @@ logging.root.setLevel(logging.WARNING)
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def battery(vehicle, _args):
     """Get vehicle battery state of charge (%)."""
     await vehicle.get_stored_overview()
-    return(vehicle.main_battery_level)
+    return vehicle.main_battery_level
+
 
 async def capabilities(vehicle, _args):
     """Get vehicle capabilities."""
     await vehicle.get_capabilities()
-    return(vehicle.capabilities)
+    return vehicle.capabilities
+
 
 async def chargingprofile(vehicle, args):
     """Manipulate charging profile."""
@@ -71,105 +74,124 @@ async def chargingprofile(vehicle, args):
         profile_id=args.profileid,
         minimum_charge_level=args.minimumchargelevel,
     )
-    return(result.status)
+    return result.status
+
 
 async def climatise_off(vehicle, _args):
     """Stop climatisation."""
     service = RemoteServices(vehicle)
     result = await service.climatise_off()
-    return(result.status)
+    return result.status
+
 
 async def climatise_on(vehicle, _args):
     """Start climatisation."""
     service = RemoteServices(vehicle)
     result = await service.climatise_on()
-    return(result.status)
+    return result.status
+
 
 async def connected(vehicle, _args):
     """Get vehicle on-line status."""
     await vehicle.get_current_overview()
-    return(vehicle.connected)
+    return vehicle.connected
+
 
 async def currentoverview(vehicle, _args):
     """Get current overview from vehicle."""
     await vehicle.get_current_overview()
-    return(vehicle.data)
+    return vehicle.data
+
 
 async def direct_charge_off(vehicle, _args):
     """Disable direct charging."""
     service = RemoteServices(vehicle)
     result = await service.direct_charge_off()
-    return(result.status)
+    return result.status
+
 
 async def direct_charge_on(vehicle, _args):
     """Enable direct charging."""
     service = RemoteServices(vehicle)
     result = await service.direct_charge_on()
-    return(result.status)
+    return result.status
+
 
 async def doors_and_lids(vehicle, _args):
     """Get stored status of doors and lids from backend."""
     await vehicle.get_stored_overview()
-    return(vehicle.doors_and_lids)
+    return vehicle.doors_and_lids
+
 
 async def flash_indicators(vehicle, _args):
     """Flash the indicators briefly."""
     service = RemoteServices(vehicle)
     result = await service.flash_indicators()
-    return(result.status)
+    return result.status
+
 
 async def honk_and_flash(vehicle, _args):
     """Honk and flash the indicators briefly."""
     service = RemoteServices(vehicle)
     result = await service.honk_and_flash_indicators()
-    return(result.status)
+    return result.status
+
 
 async def location(vehicle, _args):
     """Get the location of the vehicle."""
     await vehicle.get_stored_overview()
-    return(vehicle.location)
+    return vehicle.location
+
 
 async def lock_vehicle(vehicle, _args):
     """Lock the vehicle."""
     service = RemoteServices(vehicle)
     result = await service.lock_vehicle()
-    return(result.status)
+    return result.status
+
 
 async def pictures(vehicle, _args):
     """Get pictures (uri) of the vehicle."""
     await vehicle.get_picture_locations()
-    return(vehicle.picture_locations)
+    return vehicle.picture_locations
+
 
 async def storedoverview(vehicle, _args):
     """Get stored overview from back-end."""
     await vehicle.get_stored_overview()
-    return(vehicle.data)
+    return vehicle.data
+
 
 async def tire_status(vehicle, _args):
     """Get tire pressure status from back-end."""
     await vehicle.get_stored_overview()
-    return(vehicle.tire_pressure_status)
+    return vehicle.tire_pressure_status
+
 
 async def tire_pressures(vehicle, _args):
     """Get tire pressures from back-end."""
     await vehicle.get_stored_overview()
-    return(vehicle.tire_pressures)
+    return vehicle.tire_pressures
+
 
 async def trip_statistics(vehicle, _args):
     """Get pictures (uri) of the vehicle."""
     await vehicle.get_trip_statistics()
-    return(vehicle.trip_statistics)
+    return vehicle.trip_statistics
+
 
 async def unlock_vehicle(vehicle, args):
     """Unock the vehicle."""
     service = RemoteServices(vehicle)
     result = await service.unlock_vehicle(args.pin)
-    return(result.status)
+    return result.status
+
 
 async def vehicle_closed(vehicle, _args):
     """Check with backend if doors and lids are closed."""
     await vehicle.get_stored_overview()
-    return(vehicle.vehicle_closed)
+    return vehicle.vehicle_closed
+
 
 async def main(args):
     """Get arguments from parser and run command."""
@@ -241,10 +263,16 @@ def cli():
 
     parser.add_argument("-d", "--debug", dest="debug", action="store_true")
     parser.add_argument(
-        "-e", "--email", dest="email", default=config.get("porsche", "email"),
+        "-e",
+        "--email",
+        dest="email",
+        default=config.get("porsche", "email"),
     )
     parser.add_argument(
-        "-p", "--password", dest="password", default=config.get("porsche", "password"),
+        "-p",
+        "--password",
+        dest="password",
+        default=config.get("porsche", "password"),
     )
     parser.add_argument(
         "-s",
@@ -258,13 +286,17 @@ def cli():
     subparsers.add_parser("list")
     subparsers.add_parser("token")
 
-    for vcmd,vdesc in vehicle_commands.items():
+    for vcmd, vdesc in vehicle_commands.items():
         parser_command = subparsers.add_parser(vcmd, help=vdesc)
         parser_command.set_defaults(func=vcmd)
         add_arg_vin(parser_command)
         if vcmd == "unlock_vehicle":
             parser_command.add_argument(
-                "-n", "--pin", required=True, dest="pin", default=None,
+                "-n",
+                "--pin",
+                required=True,
+                dest="pin",
+                default=None,
             )
         if vcmd == "chargingprofile":
             parser_command.add_argument(
@@ -298,4 +330,3 @@ def cli():
         loop.run_until_complete(main(args))
     else:
         parser.print_help(sys.stderr)
-
