@@ -355,7 +355,8 @@ class PorscheVehicle:
                     elif mdata["BATTERY_CHARGING_STATE"]["endsAt"] is not None:
                         # Convert to datetime if time stamp exists
                         mdata["BATTERY_CHARGING_STATE"]["endsAt"] = datetime.datetime.strptime(
-                            mdata["BATTERY_CHARGING_STATE"]["endsAt"], "%Y-%m-%dT%H:%M:%SZ"
+                            mdata["BATTERY_CHARGING_STATE"]["endsAt"],
+                            "%Y-%m-%dT%H:%M:%SZ",
                         ).astimezone(datetime.timezone.utc)
 
                     if "chargingPower" not in mdata["BATTERY_CHARGING_STATE"]:
