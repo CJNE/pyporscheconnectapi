@@ -354,7 +354,9 @@ class PorscheVehicle:
                         mdata["BATTERY_CHARGING_STATE"]["endsAt"] = None
                     elif mdata["BATTERY_CHARGING_STATE"]["endsAt"] is not None:
                         # Convert to datetime if time stamp exists
-                        mdata["BATTERY_CHARGING_STATE"]["endsAt"] = datetime.datetime.fromisoformat(mdata["BATTERY_CHARGING_STATE"]["endsAt"])
+                        mdata["BATTERY_CHARGING_STATE"]["endsAt"] = datetime.datetime.strptime(
+                            mdata["BATTERY_CHARGING_STATE"]["endsAt"], "%Y-%m-%dT%H:%M:%SZ"
+                        ).astimezone(datetime.timezone.utc)
 
                     if "chargingPower" not in mdata["BATTERY_CHARGING_STATE"]:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
