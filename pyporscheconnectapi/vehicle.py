@@ -349,17 +349,30 @@ class PorscheVehicle:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
                         mdata["BATTERY_CHARGING_STATE"]["chargingRate"] = 0
 
+                    if "endsAt" not in mdata["BATTERY_CHARGING_STATE"]:
+                        # Charging is currently not ongoing, but we should still feed some data to the sensor
+                        mdata["BATTERY_CHARGING_STATE"]["endsAt"] = None
+                    elif mdata["BATTERY_CHARGING_STATE"]["endsAt"] is not None:
+                        # Convert to datetime if time stamp exists
+                        mdata["BATTERY_CHARGING_STATE"]["endsAt"] = datetime.datetime.strptime(
+                            mdata["BATTERY_CHARGING_STATE"]["endsAt"],
+                            "%Y-%m-%dT%H:%M:%SZ",
+                        ).astimezone(datetime.timezone.utc)
+
                     if "chargingPower" not in mdata["BATTERY_CHARGING_STATE"]:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
                         mdata["BATTERY_CHARGING_STATE"]["chargingPower"] = 0
 
                 if "CHARGING_SUMMARY" in mdata:
                     # For some strange reason, the minSoC attribute in this dict does not react on changes,
-                    # so we create a shadow of it which we update as required and use that for the sensor instead
+                    # so we create a shadow of it which we update as required and use that for the sensor instead.
+                    # It also seem that minSoC in some cases can appear as a separate attribute called targetSoC.
                     if mdata["CHARGING_SUMMARY"].get("mode") == "DIRECT":
                         minsoc = 100
                     elif mdata["CHARGING_SUMMARY"].get("chargingProfile"):
                         minsoc = self.charging_target
+                    elif mdata["CHARGING_SUMMARY"].get("targetSoC"):
+                        minsoc = mdata["CHARGING_SUMMARY"].get("targetSoC")
                     else:
                         _LOGGER.debug("Unable to find minSoC for vehicle '%s", vin)
                         # What should it fall back to?
