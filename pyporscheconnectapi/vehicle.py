@@ -244,7 +244,7 @@ class PorscheVehicle:
         try:
             _LOGGER.debug("Getting current status for vehicle %s", self.vin)
             self.status = await self.connection.get(
-                f"/connect/v1/vehicles/{self.vin}?{measurements + wakeup}",
+                f"/connect/v1/vehicles/{self.vin}?{measurements+wakeup}",
             )
             self._update_vehicle_data()
         except PorscheExceptionError as err:
@@ -261,7 +261,7 @@ class PorscheVehicle:
         try:
             _LOGGER.debug("Getting capabilities for vehicle %s", self.vin)
             self.capabilities = await self.connection.get(
-                f"/connect/v1/vehicles/{self.vin}?{measurements + commands}",
+                f"/connect/v1/vehicles/{self.vin}?{measurements+commands}",
             )
         except PorscheExceptionError as err:
             _LOGGER.exception(
@@ -333,6 +333,11 @@ class PorscheVehicle:
 
                 for m in tdata:
                     mdata[m["key"]] = m["value"]
+                _LOGGER.debug(
+                    "Got measurement data for vehicle '%s': %s",
+                    vin,
+                    json.dumps(mdata, indent=2),
+                )
 
                 # Here we do some measurements translations to make them accessible
 
@@ -362,20 +367,18 @@ class PorscheVehicle:
                     # For some strange reason, the minSoC attribute in this dict does not react on changes,
                     # so we create a shadow of it which we update as required and use that for the sensor instead.
                     # It also seem that minSoC in some cases can appear as a separate attribute called targetSoC.
-                    charging_mode = mdata.get("CHARGING_SUMMARY", {}).get("mode")
-
-                    if charging_mode == "PROFILE":
-                        minsoc = mdata.get("CHARGING_SUMMARY", {}).get("chargingProfile", {}).get("minSoC")
+                    if mdata["CHARGING_SUMMARY"].get("mode") == "DIRECT":
+                        minsoc = 100
+                    elif mdata["CHARGING_SUMMARY"].get("chargingProfile"):
+                        minsoc = self.charging_target
+                    elif mdata["CHARGING_SUMMARY"].get("targetSoC"):
+                        minsoc = mdata["CHARGING_SUMMARY"].get("targetSoC")
                     else:
-                        minsoc = mdata.get("CHARGING_SUMMARY", {}).get("targetSoC")
+                        _LOGGER.debug("Unable to find minSoC for vehicle '%s", vin)
+                        # What should it fall back to?
+                        minsoc = 80
 
                     mdata["CHARGING_SUMMARY"]["minSoC"] = minsoc
-
-                _LOGGER.debug(
-                    "Got measurement data for vehicle '%s': %s",
-                    vin,
-                    json.dumps(mdata, indent=2),
-                )
 
             else:
                 _LOGGER.debug("Measurement data missing for vehicle '%s", vin)
