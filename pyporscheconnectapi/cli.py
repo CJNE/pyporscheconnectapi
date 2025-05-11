@@ -214,23 +214,24 @@ async def main(args):
 
     response = {}
     try:
-        if args.command == "list":
-            vehicles = await controller.get_vehicles()
-            for vehicle in vehicles:
-                response = response | vehicle.data
-        elif args.command == "token":
+        if args.command == "token":
             response = controller.token
-        elif args.vin is not None:
-            vins = [args.vin]
-        elif args.all:
+        else:
             vehicles = await controller.get_vehicles()
             vins = (v.vin for v in vehicles)
+            if vins is None:
+                printc("No vehicles found.")
+
+        if args.command == "list":
+            for vehicle in vehicles:
+                response = response | vehicle.data
+        elif args.vin is not None:
+            for vin in vins:
+                vehicle = await controller.get_vehicle(vin)
+                if vehicle is not None:
+                    response = await globals()[args.func](vehicle, args)
         else:
             sys.exit("--vin or --all is required")
-        for vin in vins:
-            vehicle = await controller.get_vehicle(vin)
-            if vehicle is not None:
-                response = await globals()[args.func](vehicle, args)
     except PorscheWrongCredentialsError as e:
         sys.exit(e.message)
     else:
@@ -246,7 +247,6 @@ def add_arg_vin(parser):
         required=True,
     )
     group.add_argument("-v", "--vin", dest="vin", default=None)
-    group.add_argument("-a", "--all", dest="all", action="store_true")
 
 
 def cli():
