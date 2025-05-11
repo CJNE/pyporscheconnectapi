@@ -339,6 +339,15 @@ class PorscheVehicle:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
                         mdata["BATTERY_CHARGING_STATE"]["chargingPower"] = 0
 
+                if "CHARGING_RATE" in mdata and not mdata.get("CHARGING_RATE", {}).get("chargingRate"):
+                    # Charging is currently not ongoing, but we should still feed some data to the sensor
+                    mdata["CHARGING_RATE"]["chargingRate-kph"] = 0
+                    mdata["CHARGING_RATE"]["chargingPower"] = 0
+
+                if "CHARGING_RATE" in mdata and mdata.get("CHARGING_RATE", {}).get("chargingRate"):
+                    # This attribute gives the chargingRate in the odd unit kilometers per minute. We add a km/h attribute.
+                    mdata["CHARGING_RATE"]["chargingRate-kph"] = mdata["CHARGING_RATE"]["chargingRate"] * 60
+
                 if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
                     # If charging profiles are enabled, get minSoC from this dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]
