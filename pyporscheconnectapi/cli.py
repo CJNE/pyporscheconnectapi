@@ -20,6 +20,7 @@ vehicle_commands = {
     "battery": "Prints the main battery level (BEV)",
     "capabilities": "Get vehicle capabilities",
     "chargingprofile": "Update parameters in configured charging profile",
+    "chargingsettings": "Update charging settings",
     "climatise_off": "Stop remote climatisation",
     "climatise_on": "Start remote climatisation",
     "connected": "Check if vehicle is on-line",
@@ -73,6 +74,16 @@ async def chargingprofile(vehicle, args):
     result = await service.update_charging_profile(
         profile_id=args.profileid,
         minimum_charge_level=args.minimumchargelevel,
+    )
+    return result.status
+
+
+async def chargingsettings(vehicle, args):
+    """Edit charging settings."""
+    await vehicle.get_stored_overview()
+    service = RemoteServices(vehicle)
+    result = await service.update_charging_setting(
+        target_soc=args.target_soc,
     )
     return result.status
 
@@ -319,6 +330,15 @@ def cli():
                 required=False,
                 default=None,
                 help="Profile active status",
+            )
+        if vcmd == "chargingsettings":
+            parser_command.add_argument(
+                "--targetsoc",
+                dest="target_soc",
+                type=int,
+                required=False,
+                default=None,
+                help="Target state of charge",
             )
 
     args = parser.parse_args()

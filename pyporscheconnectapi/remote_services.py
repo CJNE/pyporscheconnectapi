@@ -189,6 +189,28 @@ class RemoteServices:
             return await self._send_command(payload)
         return None
 
+    async def set_target_soc(
+        self,
+        target_soc: int | None = None,
+    ):
+        """Remote service for setting target state of charge."""
+        if "CHARGING_SUMMARY" in self._vehicle.data and self._vehicle.data.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
+            return await self.update_charging_profile(target_soc)
+        if "CHARGING_SUMMARY" in self._vehicle.data and self._vehicle.data.get("CHARGING_SUMMARY", {}).get("mode") == "CYCLIC_DEPARTURE":
+            return await self.update_charging_setting(target_soc)
+
+        return False
+
+    async def update_charging_setting(
+        self,
+        target_soc: int | None = None,
+    ):
+        """Remote service for altering a charging settings."""
+        if target_soc is not None:
+            target_soc = min(max(int(target_soc), 25), 100)
+
+        return await self._update_charging_setting(target_soc)
+
     async def update_charging_profile(
         self,
         profile_id: int | None = None,
@@ -236,6 +258,22 @@ class RemoteServices:
             "payload": {"list": chargingprofileslist},
         }
         _LOGGER.debug("Updating charging profile for %s.", self._vehicle.vin)
+
+        return await self._send_command(payload)
+
+    async def _update_charging_setting(
+        self,
+        target_soc: int | None = None,
+    ):
+        payload = {
+            "key": "CHARGING_SETTINGS_EDIT",
+            "payload": {
+                "targetSoc": target_soc,
+                "spin": None,
+            },
+        }
+
+        _LOGGER.debug("Updating charging settings for %s.", self._vehicle.vin)
 
         return await self._send_command(payload)
 
