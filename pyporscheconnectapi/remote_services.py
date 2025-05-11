@@ -199,7 +199,8 @@ class RemoteServices:
         _LOGGER.debug("Charging profile list: %s", chargingprofileslist)
 
         if profile_id is None:
-            profile_id = self._vehicle.data["BATTERY_CHARGING_STATE"]["activeProfileId"]
+            # Find active charging profile
+            profile_id = next(p for p in chargingprofileslist if p["isEnabled"] is True)["id"]
 
         _LOGGER.debug("Active profile id: %s", profile_id)
 

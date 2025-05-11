@@ -179,25 +179,7 @@ class PorscheVehicle:
     @property
     def charging_target(self) -> bool | None:
         """Return target state of charge (SoC) for high voltage battery."""
-        if self.data.get("CHARGING_PROFILES"):
-            charging_profiles = self.data["CHARGING_PROFILES"]["list"]
-
-            active_charging_profile_id = self.data.get("BATTERY_CHARGING_STATE", {}).get(
-                "activeProfileId",
-                None,
-            )
-
-            if active_charging_profile_id is None:
-                return None
-
-            active_charging_profile = next(
-                (p for p in charging_profiles if p["id"] == active_charging_profile_id),
-                None,
-            )
-            _LOGGER.debug("Active charging profile is: %s", active_charging_profile)
-            if active_charging_profile is not None:
-                return active_charging_profile.get("minSoc")
-        return None
+        return self.data.get("CHARGING_SUMMARY", {}).get("minSoC")
 
     @property
     def location_updated_at(self) -> datetime:
@@ -356,6 +338,10 @@ class PorscheVehicle:
                     if "chargingPower" not in mdata["BATTERY_CHARGING_STATE"]:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
                         mdata["BATTERY_CHARGING_STATE"]["chargingPower"] = 0
+
+                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
+                    # If charging profiles are enabled, get minSoC from this dict.
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]
 
                 if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT":
                     # If direct charging is ongoing, minSoC is set to None in the API. We set it till 100 instead.
