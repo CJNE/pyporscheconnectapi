@@ -20,6 +20,7 @@ vehicle_commands = {
     "battery": "Prints the main battery level (BEV)",
     "capabilities": "Get vehicle capabilities",
     "chargingprofile": "Update parameters in configured charging profile",
+    "chargingsettings": "Update charging settings",
     "climatise_off": "Stop remote climatisation",
     "climatise_on": "Start remote climatisation",
     "connected": "Check if vehicle is on-line",
@@ -73,6 +74,16 @@ async def chargingprofile(vehicle, args):
     result = await service.update_charging_profile(
         profile_id=args.profileid,
         minimum_charge_level=args.minimumchargelevel,
+    )
+    return result.status
+
+
+async def chargingsettings(vehicle, args):
+    """Edit charging settings."""
+    await vehicle.get_stored_overview()
+    service = RemoteServices(vehicle)
+    result = await service.update_charging_setting(
+        target_soc=args.target_soc,
     )
     return result.status
 
@@ -214,23 +225,24 @@ async def main(args):
 
     response = {}
     try:
-        if args.command == "list":
-            vehicles = await controller.get_vehicles()
-            for vehicle in vehicles:
-                response = response | vehicle.data
-        elif args.command == "token":
+        if args.command == "token":
             response = controller.token
-        elif args.vin is not None:
-            vins = [args.vin]
-        elif args.all:
+        else:
             vehicles = await controller.get_vehicles()
             vins = (v.vin for v in vehicles)
+            if vins is None:
+                printc("No vehicles found.")
+
+        if args.command == "list":
+            for vehicle in vehicles:
+                response = response | vehicle.data
+        elif args.vin is not None:
+            for vin in vins:
+                vehicle = await controller.get_vehicle(vin)
+                if vehicle is not None:
+                    response = await globals()[args.func](vehicle, args)
         else:
             sys.exit("--vin or --all is required")
-        for vin in vins:
-            vehicle = await controller.get_vehicle(vin)
-            if vehicle is not None:
-                response = await globals()[args.func](vehicle, args)
     except PorscheWrongCredentialsError as e:
         sys.exit(e.message)
     else:
@@ -246,7 +258,6 @@ def add_arg_vin(parser):
         required=True,
     )
     group.add_argument("-v", "--vin", dest="vin", default=None)
-    group.add_argument("-a", "--all", dest="all", action="store_true")
 
 
 def cli():
@@ -319,6 +330,15 @@ def cli():
                 required=False,
                 default=None,
                 help="Profile active status",
+            )
+        if vcmd == "chargingsettings":
+            parser_command.add_argument(
+                "--targetsoc",
+                dest="target_soc",
+                type=int,
+                required=False,
+                default=None,
+                help="Target state of charge",
             )
 
     args = parser.parse_args()

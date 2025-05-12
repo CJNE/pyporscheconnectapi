@@ -113,14 +113,12 @@ class PorscheVehicle:
     @property
     def has_direct_charge(self) -> bool:
         """Return True if vehicle has direct charge ability."""
-        return self.data.get("BATTERY_CHARGING_STATE", "").__contains__(
-            "directChargingState",
-        )
+        return self.data["modelType"]["engine"] == "BEV"
 
     @property
     def direct_charge_on(self) -> bool:
         """Return True if direct charging is enabled."""
-        return self.data.get("BATTERY_CHARGING_STATE", {}).get("directChargingState") == "ENABLED_ON"
+        return self.data.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT"
 
     @property
     def privacy_mode(self) -> bool:
@@ -181,24 +179,7 @@ class PorscheVehicle:
     @property
     def charging_target(self) -> bool | None:
         """Return target state of charge (SoC) for high voltage battery."""
-        if self.data.get("CHARGING_PROFILES"):
-            charging_profiles = self.data["CHARGING_PROFILES"]["list"]
-            active_charging_profile_id = self.data["BATTERY_CHARGING_STATE"].get(
-                "activeProfileId",
-                None,
-            )
-
-            if active_charging_profile_id is None:
-                return None
-
-            active_charging_profile = next(
-                (p for p in charging_profiles if p["id"] == active_charging_profile_id),
-                None,
-            )
-            _LOGGER.debug("Active charging profile is: %s", active_charging_profile)
-            if active_charging_profile is not None:
-                return active_charging_profile.get("minSoc")
-        return None
+        return self.data.get("CHARGING_SUMMARY", {}).get("minSoC")
 
     @property
     def location_updated_at(self) -> datetime:
@@ -244,7 +225,7 @@ class PorscheVehicle:
         try:
             _LOGGER.debug("Getting current status for vehicle %s", self.vin)
             self.status = await self.connection.get(
-                f"/connect/v1/vehicles/{self.vin}?{measurements+wakeup}",
+                f"/connect/v1/vehicles/{self.vin}?{measurements + wakeup}",
             )
             self._update_vehicle_data()
         except PorscheExceptionError as err:
@@ -261,7 +242,7 @@ class PorscheVehicle:
         try:
             _LOGGER.debug("Getting capabilities for vehicle %s", self.vin)
             self.capabilities = await self.connection.get(
-                f"/connect/v1/vehicles/{self.vin}?{measurements+commands}",
+                f"/connect/v1/vehicles/{self.vin}?{measurements + commands}",
             )
         except PorscheExceptionError as err:
             _LOGGER.exception(
@@ -333,13 +314,8 @@ class PorscheVehicle:
 
                 for m in tdata:
                     mdata[m["key"]] = m["value"]
-                _LOGGER.debug(
-                    "Got measurement data for vehicle '%s': %s",
-                    vin,
-                    json.dumps(mdata, indent=2),
-                )
 
-                # Here we do some measurements translations to make them accessible
+                # The dict BATTERY_CHARGING_STATE seem deprecated in the API, so this will do nothing for now
 
                 if "BATTERY_CHARGING_STATE" in mdata:
                     if "chargingRate" in mdata["BATTERY_CHARGING_STATE"]:
@@ -363,22 +339,41 @@ class PorscheVehicle:
                         # Charging is currently not ongoing, but we should still feed some data to the sensor
                         mdata["BATTERY_CHARGING_STATE"]["chargingPower"] = 0
 
-                if "CHARGING_SUMMARY" in mdata:
-                    # For some strange reason, the minSoC attribute in this dict does not react on changes,
-                    # so we create a shadow of it which we update as required and use that for the sensor instead.
-                    # It also seem that minSoC in some cases can appear as a separate attribute called targetSoC.
-                    if mdata["CHARGING_SUMMARY"].get("mode") == "DIRECT":
-                        minsoc = 100
-                    elif mdata["CHARGING_SUMMARY"].get("chargingProfile"):
-                        minsoc = self.charging_target
-                    elif mdata["CHARGING_SUMMARY"].get("targetSoC"):
-                        minsoc = mdata["CHARGING_SUMMARY"].get("targetSoC")
-                    else:
-                        _LOGGER.debug("Unable to find minSoC for vehicle '%s", vin)
-                        # What should it fall back to?
-                        minsoc = 80
+                if "CHARGING_RATE" in mdata and not mdata.get("CHARGING_RATE", {}).get("chargingRate"):
+                    # Charging is currently not ongoing, but we should still feed some data to the sensor
+                    mdata["CHARGING_RATE"]["chargingRate-kph"] = 0
+                    mdata["CHARGING_RATE"]["chargingPower"] = 0
 
-                    mdata["CHARGING_SUMMARY"]["minSoC"] = minsoc
+                if "CHARGING_RATE" in mdata and mdata.get("CHARGING_RATE", {}).get("chargingRate"):
+                    # This attribute gives the chargingRate in the odd unit kilometers per minute. We add a km/h attribute.
+                    mdata["CHARGING_RATE"]["chargingRate-kph"] = mdata["CHARGING_RATE"]["chargingRate"] * 60
+
+                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
+                    # If charging profiles are enabled, get minSoC from this dict.
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]
+
+                if "DEPARTURES" in mdata and mdata.get("CHARGING_SETTINGS", {}).get("targetSoc"):
+                    # If charging on departures are enabled, get minSoC from the CHARGING_SETTINGS dict.
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SETTINGS"]["targetSoc"]
+
+                if "DEPARTURES" not in mdata and "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT":
+                    # If direct charging is ongoing, minSoC is set to None in the API. We set it till 100 instead.
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = 100
+
+                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetDateTime"):
+                    # If charging is ongoing we convert the targetDateTime string to a datetime object. If not we set it to None.
+                    mdata["CHARGING_SUMMARY"]["targetDateTime"] = datetime.datetime.strptime(
+                        mdata["CHARGING_SUMMARY"]["targetDateTime"],
+                        "%Y-%m-%dT%H:%M:%SZ",
+                    ).replace(tzinfo=datetime.timezone.utc)
+                elif "CHARGING_SUMMARY" in mdata:
+                    mdata["CHARGING_SUMMARY"]["targetDateTime"] = None
+
+                _LOGGER.debug(
+                    "Got measurement data for vehicle '%s': %s",
+                    vin,
+                    json.dumps(mdata, indent=2, default=str),
+                )
 
             else:
                 _LOGGER.debug("Measurement data missing for vehicle '%s", vin)

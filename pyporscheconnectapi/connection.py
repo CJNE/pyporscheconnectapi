@@ -88,7 +88,7 @@ class Connection:
                 await self.oauth2_client.ensure_valid_token(self.token)
             resp = await self.asyncClient.request(
                 method,
-                f"{API_BASE_URL}/{url}",
+                f"{API_BASE_URL}{url}",
                 headers=self.headers | {"Authorization": f"Bearer {self.token.access_token}"},
                 timeout=TIMEOUT,
                 **kwargs,
