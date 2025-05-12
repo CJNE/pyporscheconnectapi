@@ -194,12 +194,9 @@ class RemoteServices:
         target_soc: int | None = None,
     ):
         """Remote service for setting target state of charge."""
-        if "CHARGING_SUMMARY" in self._vehicle.data and self._vehicle.data.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
-            return await self.update_charging_profile(target_soc)
-        if "CHARGING_SUMMARY" in self._vehicle.data and self._vehicle.data.get("CHARGING_SUMMARY", {}).get("mode") == "CYCLIC_DEPARTURE":
+        if "DEPARTURES" in self._vehicle.data:
             return await self.update_charging_setting(target_soc)
-
-        return False
+        return await self.update_charging_profile(minimum_charge_level=target_soc)
 
     async def update_charging_setting(
         self,
