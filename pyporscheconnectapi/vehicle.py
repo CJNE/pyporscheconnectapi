@@ -356,7 +356,7 @@ class PorscheVehicle:
                     # If charging on departures are enabled, get minSoC from the CHARGING_SETTINGS dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SETTINGS"]["targetSoc"]
 
-                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT":
+                if "DEPARTURES" not in mdata and "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT":
                     # If direct charging is ongoing, minSoC is set to None in the API. We set it till 100 instead.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = 100
 
