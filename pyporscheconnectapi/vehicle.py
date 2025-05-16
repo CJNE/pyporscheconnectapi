@@ -296,9 +296,6 @@ class PorscheVehicle:
                 json.dumps(self.status, indent=2),
             )
 
-            if "customName" not in self.status:
-                self.status["customName"] = ""
-
             bdata = {k: self.status[k] for k in BASE_DATA}
 
             bdata["name"] = bdata["customName"] if "customName" in bdata else bdata["modelName"]
