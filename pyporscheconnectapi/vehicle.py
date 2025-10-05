@@ -16,7 +16,7 @@ from .const import COMMANDS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATIST
 
 _LOGGER = logging.getLogger(__name__)
 
-BASE_DATA = ["vin", "modelName", "customName", "modelType", "systemInfo", "timestamp"]
+BASE_DATA = ["vin", "modelName", "modelType", "systemInfo", "timestamp"]
 
 
 class PorscheVehicle:
