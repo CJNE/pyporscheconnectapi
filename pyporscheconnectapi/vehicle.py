@@ -113,7 +113,7 @@ class PorscheVehicle:
     @property
     def has_direct_charge(self) -> bool:
         """Return True if vehicle has direct charge ability."""
-        return self.data["modelType"]["engine"] == "BEV"
+        return self.data["modelType"]["engine"] == "BEV" or self.data["modelType"]["engine"] == "PHEV"
 
     @property
     def direct_charge_on(self) -> bool:
