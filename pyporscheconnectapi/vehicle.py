@@ -16,7 +16,7 @@ from .const import COMMANDS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATIST
 
 _LOGGER = logging.getLogger(__name__)
 
-BASE_DATA = ["vin", "modelName", "customName", "modelType", "systemInfo", "timestamp"]
+BASE_DATA = ["vin", "modelName", "modelType", "systemInfo", "timestamp"]
 
 
 class PorscheVehicle:
@@ -298,7 +298,7 @@ class PorscheVehicle:
 
             bdata = {k: self.status[k] for k in BASE_DATA}
 
-            bdata["name"] = bdata["customName"] if "customName" in bdata else bdata["modelName"]
+            bdata["name"] = self.status["customName"] if "customName" in self.status else bdata["modelName"]
 
             _LOGGER.debug(
                 "Got base data for vehicle '%s': %s",
