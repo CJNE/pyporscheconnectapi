@@ -13,7 +13,7 @@ from pathlib import Path
 
 from pyporscheconnectapi.account import PorscheConnectAccount
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.exceptions import PorscheWrongCredentialsError, PorscheCaptchaRequiredError
+from pyporscheconnectapi.exceptions import PorscheCaptchaRequiredError, PorscheWrongCredentialsError
 from pyporscheconnectapi.remote_services import RemoteServices
 
 vehicle_commands = {
@@ -237,10 +237,10 @@ async def main(args):
                 captcha_file = Path("porsche_captcha.html")
                 captcha_file.write_text('<img src="' + captcha_svg + '" />', encoding="utf-8")
 
-                print(
+                printc(
                     "\n⚠️ CAPTCHA required.\n"
                     f"CAPTCHA image written to: {captcha_file.resolve()}\n"
-                    "Open this file in your browser, solve the CAPTCHA, and enter the text below."
+                    "Open this file in your browser, solve the CAPTCHA, and enter the text below.",
                 )
 
                 captcha_code = input("CAPTCHA: ").strip()
