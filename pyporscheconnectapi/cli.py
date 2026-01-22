@@ -13,7 +13,7 @@ from pathlib import Path
 
 from pyporscheconnectapi.account import PorscheConnectAccount
 from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.exceptions import PorscheWrongCredentialsError
+from pyporscheconnectapi.exceptions import PorscheWrongCredentialsError, PorscheCaptchaRequiredError
 from pyporscheconnectapi.remote_services import RemoteServices
 
 vehicle_commands = {
@@ -228,7 +228,27 @@ async def main(args):
         if args.command == "token":
             response = controller.token
         else:
-            vehicles = await controller.get_vehicles()
+            try:
+                vehicles = await controller.get_vehicles()
+            except PorscheCaptchaRequiredError as captcha_err:
+                captcha_svg = captcha_err.captcha
+                state = captcha_err.state
+
+                captcha_file = Path("porsche_captcha.html")
+                captcha_file.write_text('<img src="' + captcha_svg + '" />', encoding="utf-8")
+
+                print(
+                    "\n⚠️ CAPTCHA required.\n"
+                    f"CAPTCHA image written to: {captcha_file.resolve()}\n"
+                    "Open this file in your browser, solve the CAPTCHA, and enter the text below."
+                )
+
+                captcha_code = input("CAPTCHA: ").strip()
+
+                connection = Connection(email, password, token=token, captcha_code=captcha_code, state=state)
+                controller = PorscheConnectAccount(connection=connection)
+                vehicles = await controller.get_vehicles()
+
             vins = (v.vin for v in vehicles)
             if vins is None:
                 printc("No vehicles found.")
@@ -344,7 +364,8 @@ def cli():
     args = parser.parse_args()
 
     if args.command:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         loop.run_until_complete(main(args))
     else:
         parser.print_help(sys.stderr)
