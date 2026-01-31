@@ -357,14 +357,13 @@ class PorscheVehicle:
                     # If direct charging is ongoing, minSoC is set to None in the API. We set it till 100 instead.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = 100
 
-                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetDateTime"):
+                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetDateTimeWithOffset"):
                     # If charging is ongoing we convert the targetDateTime string to a datetime object. If not we set it to None.
-                    mdata["CHARGING_SUMMARY"]["targetDateTime"] = datetime.datetime.strptime(
-                        mdata["CHARGING_SUMMARY"]["targetDateTime"],
-                        "%Y-%m-%dT%H:%M:%SZ",
-                    ).replace(tzinfo=datetime.timezone.utc)
+                    mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"] = datetime.datetime.fromisoformat(
+                        mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"]
+                    )
                 elif "CHARGING_SUMMARY" in mdata:
-                    mdata["CHARGING_SUMMARY"]["targetDateTime"] = None
+                    mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"] = None
 
                 _LOGGER.debug(
                     "Got measurement data for vehicle '%s': %s",
