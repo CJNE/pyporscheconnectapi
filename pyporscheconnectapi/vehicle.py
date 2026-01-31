@@ -360,7 +360,7 @@ class PorscheVehicle:
                 if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetDateTimeWithOffset"):
                     # If charging is ongoing we convert the targetDateTime string to a datetime object. If not we set it to None.
                     mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"] = datetime.datetime.fromisoformat(
-                        mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"]
+                        mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"],
                     )
                 elif "CHARGING_SUMMARY" in mdata:
                     mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"] = None
