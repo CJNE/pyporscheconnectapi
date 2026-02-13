@@ -258,7 +258,7 @@ async def main(args):
                 response = response | vehicle.data
         elif args.vin is not None:
             for vin in vins:
-                vehicle = await controller.get_vehicle(vin)
+                vehicle = await controller.get_vehicle(args.vin)
                 if vehicle is not None:
                     response = await globals()[args.func](vehicle, args)
         else:
