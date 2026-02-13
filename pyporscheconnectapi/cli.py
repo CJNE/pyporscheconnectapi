@@ -257,10 +257,9 @@ async def main(args):
             for vehicle in vehicles:
                 response = response | vehicle.data
         elif args.vin is not None:
-            for vin in vins:
-                vehicle = await controller.get_vehicle(args.vin)
-                if vehicle is not None:
-                    response = await globals()[args.func](vehicle, args)
+            vehicle = await controller.get_vehicle(args.vin)
+            if vehicle is not None:
+                response = await globals()[args.func](vehicle, args)
         else:
             sys.exit("--vin or --all is required")
     except PorscheWrongCredentialsError as e:
