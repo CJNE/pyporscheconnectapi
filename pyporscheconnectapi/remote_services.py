@@ -321,9 +321,7 @@ class RemoteServices:
                 raise PorscheRemoteServiceError(
                     msg,
                 )
-            if status.state not in [
-                ExecutionState.UNKNOWN,
-            ]:
+            if status.state != ExecutionState.UNKNOWN:
                 return status
         current_state = "Unknown"
         if status is not None:
