@@ -312,30 +312,6 @@ class PorscheVehicle:
                 for m in tdata:
                     mdata[m["key"]] = m["value"]
 
-                # The dict BATTERY_CHARGING_STATE seem deprecated in the API, so this will do nothing for now
-
-                if "BATTERY_CHARGING_STATE" in mdata:
-                    if "chargingRate" in mdata["BATTERY_CHARGING_STATE"]:
-                        # Convert charging rate from km/min to km/h
-                        mdata["BATTERY_CHARGING_STATE"]["chargingRate"] = mdata["BATTERY_CHARGING_STATE"]["chargingRate"] * 60
-                    else:
-                        # Charging is currently not ongoing, but we should still feed some data to the sensor
-                        mdata["BATTERY_CHARGING_STATE"]["chargingRate"] = 0
-
-                    if "endsAt" not in mdata["BATTERY_CHARGING_STATE"]:
-                        # Charging is currently not ongoing, but we should still feed some data to the sensor
-                        mdata["BATTERY_CHARGING_STATE"]["endsAt"] = None
-                    elif mdata["BATTERY_CHARGING_STATE"]["endsAt"] is not None:
-                        # Convert to datetime if time stamp exists
-                        mdata["BATTERY_CHARGING_STATE"]["endsAt"] = datetime.datetime.strptime(
-                            mdata["BATTERY_CHARGING_STATE"]["endsAt"],
-                            "%Y-%m-%dT%H:%M:%SZ",
-                        ).astimezone(datetime.timezone.utc)
-
-                    if "chargingPower" not in mdata["BATTERY_CHARGING_STATE"]:
-                        # Charging is currently not ongoing, but we should still feed some data to the sensor
-                        mdata["BATTERY_CHARGING_STATE"]["chargingPower"] = 0
-
                 if "CHARGING_RATE" in mdata and not mdata.get("CHARGING_RATE", {}).get("chargingRate"):
                     # Charging is currently not ongoing, but we should still feed some data to the sensor
                     mdata["CHARGING_RATE"]["chargingRate-kph"] = 0
