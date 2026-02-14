@@ -11,6 +11,8 @@ import sys
 from getpass import getpass
 from pathlib import Path
 
+import aiofiles
+
 from pyporscheconnectapi.account import PorscheConnectAccount
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import PorscheCaptchaRequiredError, PorscheWrongCredentialsError
@@ -204,6 +206,18 @@ async def vehicle_closed(vehicle, _args):
     return vehicle.vehicle_closed
 
 
+async def async_input(prompt: str, *, strip: bool = True) -> str:
+    """Async-friendly input() wrapper."""
+    value = await asyncio.to_thread(input, prompt)
+    return value.strip() if strip else value
+
+
+async def save_token(session_file, token):
+    """Save token to file."""
+    async with aiofiles.open(session_file, "w", encoding="utf-8") as f:
+        await f.write(json.dumps(token, ensure_ascii=False, indent=2))
+
+
 async def main(args):
     """Get arguments from parser and run command."""
     try:
@@ -217,7 +231,7 @@ async def main(args):
     if args.debug:
         logging.root.setLevel(logging.DEBUG)
 
-    email = args.email or input("Please enter Porsche Connect email: ")
+    email = args.email or await async_input("Please enter Porsche Connect email: ")
     password = args.password or getpass()
 
     connection = Connection(email, password, token=token)
@@ -235,15 +249,16 @@ async def main(args):
                 state = captcha_err.state
 
                 captcha_file = Path("porsche_captcha.html")
-                captcha_file.write_text('<img src="' + captcha_svg + '" />', encoding="utf-8")
+                async with aiofiles.open(captcha_file, "w", encoding="utf-8") as f:
+                    await f.write(f'<img src="{captcha_svg}" />')
 
                 printc(
                     "\n⚠️ CAPTCHA required.\n"
-                    f"CAPTCHA image written to: {captcha_file.resolve()}\n"
+                    f"CAPTCHA image written to: {captcha_file}\n"
                     "Open this file in your browser, solve the CAPTCHA, and enter the text below.",
                 )
 
-                captcha_code = input("CAPTCHA: ").strip()
+                captcha_code = await async_input("CAPTCHA: ")
 
                 connection = Connection(email, password, token=token, captcha_code=captcha_code, state=state)
                 controller = PorscheConnectAccount(connection=connection)
@@ -257,10 +272,9 @@ async def main(args):
             for vehicle in vehicles:
                 response = response | vehicle.data
         elif args.vin is not None:
-            for vin in vins:
-                vehicle = await controller.get_vehicle(vin)
-                if vehicle is not None:
-                    response = await globals()[args.func](vehicle, args)
+            vehicle = await controller.get_vehicle(args.vin)
+            if vehicle is not None:
+                response = await globals()[args.func](vehicle, args)
         else:
             sys.exit("--vin or --all is required")
     except PorscheWrongCredentialsError as e:
@@ -268,8 +282,7 @@ async def main(args):
     else:
         printc(response)
     await connection.close()
-    with Path.open(args.session_file, "w", encoding="utf-8") as json_file:
-        json.dump(connection.token, json_file, ensure_ascii=False, indent=2)
+    await save_token(args.session_file, connection.token)
 
 
 def add_arg_vin(parser):
