@@ -2,10 +2,15 @@
 
 #  SPDX-License-Identifier: Apache-2.0
 import asyncio
+import base64
+import hashlib
+import json
 import logging
+import os
+import re
 import time
 from typing import NamedTuple
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -102,6 +107,7 @@ class OAuth2Client:
         client: httpx.AsyncClient,
         credentials: Credentials,
         captcha: Captcha,
+        code_verifier: str | None = None,
         leeway: int = 60,
     ):
         """Initialise the oauth2 client."""
@@ -109,7 +115,48 @@ class OAuth2Client:
         self.credentials = credentials
         self.captcha = captcha
         self.leeway = leeway
+        self.code_verifier = code_verifier
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
+
+    def _generate_pkce_verifier(self) -> str:
+        """Generate an Auth0-compatible PKCE verifier."""
+        return base64.urlsafe_b64encode(os.urandom(64)).rstrip(b"=").decode("ascii")
+
+    def _build_pkce_challenge(self, verifier: str) -> str:
+        """Generate a S256 code challenge from the verifier."""
+        digest = hashlib.sha256(verifier.encode("ascii")).digest()
+        return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+    def _extract_universal_login_context(self, html: str) -> dict | None:
+        """Extract Auth0 universal login context from inline base64 JSON."""
+        match = re.search(r'atob\("([A-Za-z0-9+/=]+)"\)', html)
+        if not match:
+            return None
+
+        try:
+            payload = base64.b64decode(match.group(1))
+            return json.loads(payload.decode("utf-8"))
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+    def _extract_captcha_from_login_html(self, html: str) -> str | None:
+        """Extract captcha image data from Porsche/Auth0 login HTML.
+
+        Older pages exposed the captcha as a regular <img alt="captcha">. The
+        current Porsche login page embeds the full login context as a base64
+        payload in `window.universal_login_context`, including
+        `screen.captcha.image`.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        captcha_img = soup.find("img", {"alt": "captcha"})
+        if captcha_img and captcha_img.get("src"):
+            return captcha_img["src"]
+
+        context = self._extract_universal_login_context(html)
+        if context is None:
+            return None
+
+        return context.get("screen", {}).get("captcha", {}).get("image")
 
     async def ensure_valid_token(self, token: OAuth2Token):
         """Ensure the access_token is valid, logging in or refreshing if necessary."""
@@ -144,6 +191,7 @@ class OAuth2Client:
                 _LOGGER.debug("Fetching authorization code.")
 
                 # first request to get the code
+                self.code_verifier = self._generate_pkce_verifier()
                 params = await self.get_and_extract_location_params(
                     AUTHORIZATION_URL,
                     params={
@@ -152,6 +200,9 @@ class OAuth2Client:
                         "redirect_uri": REDIRECT_URI,
                         "audience": AUDIENCE,
                         "scope": SCOPE,
+                        "response_mode": "query",
+                        "code_challenge": self._build_pkce_challenge(self.code_verifier),
+                        "code_challenge_method": "S256",
                         "state": "pyporscheconnectapi",
                     },
                 )
@@ -170,10 +221,9 @@ class OAuth2Client:
                 resume_path = await self.login_with_identifier(params["state"][0])
 
                 # completed the Identifier First flow, now resume the auth code request
-                params = await self.get_and_extract_location_params(
-                    f"https://{AUTHORIZATION_SERVER}{resume_path}",
+                authorization_code = await self.resume_authorization_code_flow(
+                    self._resolve_resume_url(resume_path),
                 )
-                authorization_code = params.get("code", [None])[0]
 
             except httpx.HTTPStatusError as exc:
                 raise PorscheExceptionError(exc.response.status_code) from exc
@@ -184,11 +234,12 @@ class OAuth2Client:
 
         else:
             try:
+                if self.code_verifier is None:
+                    self.code_verifier = self._generate_pkce_verifier()
                 resume_path = await self.login_with_identifier(self.captcha.state)
-                params = await self.get_and_extract_location_params(
-                    f"https://{AUTHORIZATION_SERVER}{resume_path}",
+                authorization_code = await self.resume_authorization_code_flow(
+                    self._resolve_resume_url(resume_path),
                 )
-                authorization_code = params.get("code", [None])[0]
 
             except httpx.HTTPStatusError as exc:
                 raise PorscheExceptionError(exc.response.status_code) from exc
@@ -234,6 +285,120 @@ class OAuth2Client:
         new_query = {k: v[0] for k, v in query.items()}
         new_query.update(params)
         return new_query
+
+    def _resolve_resume_url(self, resume_path: str) -> str:
+        """Resolve resume targets returned by Porsche/Auth0."""
+        if resume_path.startswith("http://") or resume_path.startswith("https://"):
+            return resume_path
+        return f"https://{AUTHORIZATION_SERVER}{resume_path}"
+
+    async def _skip_passkey_enrollment(self, url: str, html: str | None = None) -> str:
+        """Skip optional Auth0/Porsche passkey enrollment."""
+        if html is None:
+            resp = await self.client.get(
+                url,
+                timeout=TIMEOUT,
+                headers=self.headers,
+                follow_redirects=False,
+            )
+            resp.raise_for_status()
+            html = resp.text
+
+        context = self._extract_universal_login_context(html)
+        if context is None:
+            msg = "PASSKEY_ENROLLMENT_CONTEXT_MISSING"
+            raise PorscheExceptionError(msg)
+
+        transaction_state = context.get("transaction", {}).get("state")
+        if not transaction_state:
+            msg = "PASSKEY_ENROLLMENT_STATE_MISSING"
+            raise PorscheExceptionError(msg)
+
+        submitted_form_data = context.get("untrustedData", {}).get("submittedFormData") or {}
+        data = dict(submitted_form_data)
+        data.update(
+            {
+                "state": transaction_state,
+                "action": "abort-passkey-enrollment",
+                "acul-sdk": "@auth0/auth0-acul-js@1.2.0",
+            },
+        )
+
+        resp = await self.client.post(
+            url,
+            data=data,
+            timeout=TIMEOUT,
+            headers=self.headers,
+            follow_redirects=False,
+        )
+        if resp.status_code not in (302, 303):
+            msg = "PASSKEY_ENROLLMENT_SKIP_FAILED"
+            raise PorscheExceptionError(msg)
+
+        return urljoin(url, resp.headers["Location"])
+
+    async def resume_authorization_code_flow(self, url: str) -> str:
+        """Follow Auth0 redirects until the final authorization code is returned."""
+        current_url = url
+
+        for _ in range(10):
+            parsed = urlparse(current_url)
+            code = parse_qs(parsed.query).get("code", [None])[0]
+            if code is not None:
+                return code
+
+            resp = await self.client.get(
+                current_url,
+                timeout=TIMEOUT,
+                headers=self.headers,
+                follow_redirects=False,
+            )
+
+            if resp.status_code in (302, 303, 307, 308):
+                location = urljoin(str(resp.url), resp.headers["Location"])
+                parsed = urlparse(location)
+                code = parse_qs(parsed.query).get("code", [None])[0]
+                if code is not None:
+                    return code
+                if "/u/passkey-enrollment" in parsed.path:
+                    current_url = await self._skip_passkey_enrollment(location)
+                    continue
+                current_url = location
+                continue
+
+            if resp.status_code == 200 and "/u/passkey-enrollment" in resp.url.path:
+                current_url = await self._skip_passkey_enrollment(str(resp.url), resp.text)
+                continue
+
+            # Porsche may bounce back to the SPA root after login. At this point the
+            # Auth0 session is established, so a fresh /authorize request should now
+            # yield the final authorization code.
+            if resp.status_code == 200 and resp.url.host == "my.porsche.com":
+                params = await self.get_and_extract_location_params(
+                    AUTHORIZATION_URL,
+                    params={
+                        "response_type": "code",
+                        "client_id": CLIENT_ID,
+                        "redirect_uri": REDIRECT_URI,
+                        "audience": AUDIENCE,
+                        "scope": SCOPE,
+                        "response_mode": "query",
+                        "code_challenge": self._build_pkce_challenge(self.code_verifier),
+                        "code_challenge_method": "S256",
+                        "state": "pyporscheconnectapi",
+                    },
+                )
+                code = params.get("code", [None])[0]
+                if code is not None:
+                    return code
+                msg = "AUTHORIZATION_CODE_MISSING_AFTER_PORTAL_RESUME"
+                raise PorscheExceptionError(msg)
+
+            msg = "Could not fetch authorization code"
+            raise PorscheExceptionError(msg)
+
+        msg = "AUTHORIZATION_CODE_REDIRECT_LOOP"
+        raise PorscheExceptionError(msg)
 
     async def login_with_identifier(self, state: str):
         """Log into the Identifier First flow.
@@ -283,8 +448,10 @@ class OAuth2Client:
         # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
         if resp.status_code == 400:
             _LOGGER.debug("Captcha required.")
-            soup = BeautifulSoup(resp.text, "html.parser")
-            captcha_img = soup.find("img", {"alt": "captcha"})["src"]
+            captcha_img = self._extract_captcha_from_login_html(resp.text)
+            if captcha_img is None:
+                msg = "CAPTCHA_REQUIRED_BUT_NOT_PARSEABLE"
+                raise PorscheExceptionError(msg)
             _LOGGER.debug("Parsed out SVG captcha: %s", captcha_img)
             raise PorscheCaptchaRequiredError(captcha=captcha_img, state=state)
 
@@ -334,6 +501,8 @@ class OAuth2Client:
             "code": authorization_code,
             "redirect_uri": REDIRECT_URI,
         }
+        if self.code_verifier is not None:
+            data["code_verifier"] = self.code_verifier
 
         try:
             _LOGGER.debug("Exchanging the authorization code for an access token.")
@@ -347,6 +516,7 @@ class OAuth2Client:
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPStatusError as exc:
+            _LOGGER.debug("Token exchange failed: %s", exc.response.text)
             raise PorscheExceptionError(exc.response.status_code) from exc
 
     async def refresh_token(self, refresh_token):

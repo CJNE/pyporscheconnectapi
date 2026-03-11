@@ -9,9 +9,11 @@ _LOGGER = logging.getLogger(__name__)
 class PorscheExceptionError(Exception):
     """Class of Porsche API exceptions."""
 
-    def __init__(self, code=None, *args, **kwargs) -> None:
+    def __init__(self, code=None, response_body=None, request_url=None, *args, **kwargs) -> None:
         """Initialize exceptions for the Porsche API."""
         self.message = ""
+        self.response_body = response_body
+        self.request_url = request_url
         super().__init__(*args, **kwargs)
         if code is not None:
             self.code = code
@@ -40,6 +42,9 @@ class PorscheExceptionError(Exception):
                 self.message = "UPSTREAM_TIMEOUT"
             elif self.code > 299:
                 self.message = f"UNKNOWN_ERROR_{self.code}"
+
+        if self.response_body:
+            self.message = f"{self.message}: {self.response_body}"
 
 
 class PorscheWrongCredentialsError(PorscheExceptionError):

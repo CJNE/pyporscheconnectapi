@@ -4,10 +4,38 @@ from __future__ import annotations
 
 import logging
 
-from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.vehicle import PorscheVehicle
+from .connection import Connection
+from .vehicle import PorscheVehicle
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _normalize_engine(vehicle: dict) -> str:
+    """Best-effort mapping of the portal vehicle payload to drivetrain type."""
+    model_type = vehicle.get("modelType", {})
+    if model_type.get("engine"):
+        return model_type["engine"]
+    description = str(vehicle.get("modelDescription", "")).lower()
+    if description in {"macan", "taycan"}:
+        return "BEV"
+    return "COMBUSTION"
+
+
+def _normalize_vehicle(vehicle: dict) -> dict:
+    """Normalize the portal vehicle payload to the legacy library shape."""
+    model_name = vehicle.get("modelDescription") or vehicle.get("modelName") or vehicle.get("vin", "Porsche")
+    return {
+        "vin": vehicle["vin"],
+        "name": model_name,
+        "modelName": model_name,
+        "modelType": {
+            "year": vehicle.get("modelYear") or vehicle.get("modelType", {}).get("year", "not available"),
+            "engine": _normalize_engine(vehicle),
+        },
+        "systemInfo": vehicle.get("systemInfo", {}),
+        "timestamp": vehicle.get("validFrom") or vehicle.get("timestamp"),
+        "portalVehicle": vehicle,
+    }
 
 
 class PorscheConnectAccount:
@@ -39,7 +67,7 @@ class PorscheConnectAccount:
                 _LOGGER.debug("Got vehicle %s", vehicle)
                 v = PorscheVehicle(
                     vin=vehicle["vin"],
-                    data=vehicle,
+                    data=_normalize_vehicle(vehicle),
                     status={},
                     connection=self.connection,
                 )

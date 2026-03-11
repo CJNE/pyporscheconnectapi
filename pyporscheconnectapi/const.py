@@ -1,12 +1,13 @@
 """Client configuration constants."""
 
 AUTHORIZATION_SERVER = "identity.porsche.com"
-REDIRECT_URI = "my-porsche-app://auth0/callback"
+REDIRECT_URI = "https://security.porsche.com/auth/en-GB/app/callback"
 AUDIENCE = "https://api.porsche.com"
-CLIENT_ID = "XhygisuebbrqQ80byOuU5VncxLIm8E6H"
-X_CLIENT_ID = "41843fb4-691d-4970-85c7-2673e8ecef40"
-USER_AGENT = "pyporscheconnectapi/0.2.0"
+CLIENT_ID = "qIkoJqlAXvbj4R3j12ct3zdinPId0Zbl"
+X_CLIENT_ID = "09fcb5d8-d4ad-48e8-a0e8-a9c7cb1b9cbc"
+USER_AGENT = "de.porsche.one/18.26.09-row+162630 (android)"
 API_BASE_URL = "https://api.ppa.porsche.com/app"
+DCGW_BASE_URL = "https://dgw.p-fra.portal.aws.porsche.cloud"
 AUTHORIZATION_URL = f"https://{AUTHORIZATION_SERVER}/authorize"
 TOKEN_URL = f"https://{AUTHORIZATION_SERVER}/oauth/token"
 TIMEOUT = 90
