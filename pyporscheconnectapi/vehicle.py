@@ -8,15 +8,92 @@ import logging
 import re
 import uuid
 
-from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.exceptions import PorscheExceptionError
-from pyporscheconnectapi.remote_services import RemoteServices
+from .connection import Connection
+from .exceptions import PorscheExceptionError
+from .remote_services import RemoteServices
 
 from .const import COMMANDS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATISTICS
 
 _LOGGER = logging.getLogger(__name__)
 
 BASE_DATA = ["vin", "modelName", "modelType", "systemInfo", "timestamp"]
+
+
+def _normalize_engine(vehicle: dict) -> str:
+    """Best-effort mapping of the portal vehicle payload to drivetrain type."""
+    description = str(vehicle.get("modelDescription", "")).lower()
+    if description in {"macan", "taycan"}:
+        return "BEV"
+    return "COMBUSTION"
+
+
+def _normalize_portal_vehicle(vehicle: dict) -> dict:
+    """Normalize the portal vehicle payload to the legacy library shape."""
+    model_name = vehicle.get("modelDescription") or vehicle.get("modelName") or vehicle.get("vin", "Porsche")
+    return {
+        "vin": vehicle["vin"],
+        "name": model_name,
+        "modelName": model_name,
+        "modelType": {
+            "year": vehicle.get("modelYear", "not available"),
+            "engine": _normalize_engine(vehicle),
+        },
+        "systemInfo": {},
+        "timestamp": vehicle.get("validFrom"),
+        "portalVehicle": vehicle,
+    }
+
+
+def _remote_access_enabled(connect_capability: dict) -> bool | None:
+    """Translate connect capability remote access state to the legacy flag shape."""
+    remote_access = connect_capability.get("remoteAccess", {})
+    if not remote_access:
+        return None
+    return remote_access.get("supported") is True and remote_access.get("status") == "ACTIVE" and remote_access.get("userIsActive") is True
+
+
+def _privacy_mode_enabled(services: dict) -> bool | None:
+    """Translate service disabled reasons to the legacy privacy mode flag."""
+    items = services.get("services")
+    if items is None:
+        return None
+    return any(service.get("disabledReason") == "PRIVACY_MODE" for service in items)
+
+
+def _connectivity_state(connectivity: dict) -> dict | None:
+    """Normalize connectivity data into a legacy-friendly nested node."""
+    if not connectivity:
+        return None
+    return {
+        "supported": connectivity.get("supported"),
+        "status": connectivity.get("status"),
+        "connectivityStatus": connectivity.get("connectivityStatus"),
+        "provider": connectivity.get("provider"),
+    }
+
+
+def _pairing_state(pairing: dict, connect_capability: dict) -> dict | None:
+    """Normalize pairing state from available core endpoints."""
+    login = connect_capability.get("login", {}) if connect_capability else {}
+    if not pairing and not login:
+        return None
+    return {
+        "status": pairing.get("status") or login.get("pairingStatus"),
+        "pairingCode": pairing.get("pairingCode") or login.get("pairingCode"),
+        "canSendPairingCode": pairing.get("canSendPairingCode", login.get("canSendPairingCode")),
+        "method": login.get("method"),
+        "porscheId": login.get("porscheId"),
+    }
+
+
+def _permissions_state(permissions: dict) -> dict | None:
+    """Normalize permissions data into a stable node."""
+    if not permissions:
+        return None
+    return {
+        "userIsActive": permissions.get("userIsActive"),
+        "userRoleStatus": permissions.get("userRoleStatus"),
+    }
 
 
 class PorscheVehicle:
@@ -203,14 +280,14 @@ class PorscheVehicle:
 
     async def get_stored_overview(self) -> None:
         """Return stored vechicle status overview."""
-        measurements = "mf=" + "&mf=".join(MEASUREMENTS)
-
         try:
             _LOGGER.debug("Getting stored status for vehicle %s", self.vin)
-            self.status = await self.connection.get(
-                f"/connect/v1/vehicles/{self.vin}?{measurements}",
-            )
-            self._update_vehicle_data()
+            overview = await self.connection.get(f"/connect/v1/vehicles/{self.vin}")
+            self.status = {
+                "appVehicle": overview,
+            }
+            normalized = _normalize_portal_vehicle(overview)
+            self.data = self.data | normalized
         except PorscheExceptionError as err:
             _LOGGER.exception(
                 "Could not get stored overview, error communicating with API: '%s",
@@ -267,18 +344,7 @@ class PorscheVehicle:
 
     async def get_picture_locations(self) -> None:
         """Return list of uri's to vechicle pictures."""
-        try:
-            _LOGGER.debug("Getting picture urls for vehicle %s", self.vin)
-            resp = await self.connection.get(
-                f"/connect/v1/vehicles/{self.vin}/pictures",
-            )
-            for p in resp:
-                self.picture_locations[p["view"]] = p["url"]
-        except PorscheExceptionError as err:
-            _LOGGER.exception(
-                "Could not get capabilities, error communicating with API: %s",
-                err.message,
-            )
+        _LOGGER.debug("Skipping picture lookup for vehicle %s; legacy picture endpoint is no longer used", self.vin)
 
     def __repr__(self) -> str:
         """Return a printable representation of the Porsche Connect Vehicle object."""
@@ -321,7 +387,11 @@ class PorscheVehicle:
                     # This attribute gives the chargingRate in the odd unit kilometers per minute. We add a km/h attribute.
                     mdata["CHARGING_RATE"]["chargingRate-kph"] = mdata["CHARGING_RATE"]["chargingRate"] * 60
 
-                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
+                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetSoC") is not None:
+                    # Current app/connect payload already exposes the active target SoC explicitly.
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["targetSoC"]
+
+                elif "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
                     # If charging profiles are enabled, get minSoC from this dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]
 
@@ -329,7 +399,12 @@ class PorscheVehicle:
                     # If charging on departures are enabled, get minSoC from the CHARGING_SETTINGS dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SETTINGS"]["targetSoc"]
 
-                if "DEPARTURES" not in mdata and "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT":
+                if (
+                    "DEPARTURES" not in mdata
+                    and "CHARGING_SUMMARY" in mdata
+                    and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT"
+                    and mdata.get("CHARGING_SUMMARY", {}).get("minSoC") is None
+                ):
                     # If direct charging is ongoing, minSoC is set to None in the API. We set it till 100 instead.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = 100
 

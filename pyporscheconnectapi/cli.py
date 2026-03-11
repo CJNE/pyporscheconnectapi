@@ -13,10 +13,10 @@ from pathlib import Path
 
 import aiofiles
 
-from pyporscheconnectapi.account import PorscheConnectAccount
-from pyporscheconnectapi.connection import Connection
-from pyporscheconnectapi.exceptions import PorscheCaptchaRequiredError, PorscheWrongCredentialsError
-from pyporscheconnectapi.remote_services import RemoteServices
+from .account import PorscheConnectAccount
+from .connection import Connection
+from .exceptions import PorscheCaptchaRequiredError, PorscheWrongCredentialsError
+from .remote_services import RemoteServices
 
 vehicle_commands = {
     "battery": "Prints the main battery level (BEV)",
