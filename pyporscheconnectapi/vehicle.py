@@ -19,6 +19,13 @@ _LOGGER = logging.getLogger(__name__)
 BASE_DATA = ["vin", "modelName", "modelType", "systemInfo", "timestamp"]
 
 
+def _parse_porsche_datetime(datetime_str: str) -> datetime.datetime:
+    """Parse Porsche API timestamps, including UTC timestamps with a trailing Z."""
+    if datetime_str.endswith("Z"):
+        datetime_str = datetime_str[:-1] + "+00:00"
+    return datetime.datetime.fromisoformat(datetime_str)
+
+
 class PorscheVehicle:
     """Representation of a Porsche Connect vehicle."""
 
@@ -186,7 +193,7 @@ class PorscheVehicle:
         """Return time stamp of latest location update."""
         datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
         if datetime_str:
-            return datetime.datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ").astimezone(datetime.timezone.utc)
+            return _parse_porsche_datetime(datetime_str)
         return None
 
     @property
@@ -335,7 +342,7 @@ class PorscheVehicle:
 
                 if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetDateTimeWithOffset"):
                     # If charging is ongoing we convert the targetDateTime string to a datetime object. If not we set it to None.
-                    mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"] = datetime.datetime.fromisoformat(
+                    mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"] = _parse_porsche_datetime(
                         mdata["CHARGING_SUMMARY"]["targetDateTimeWithOffset"],
                     )
                 elif "CHARGING_SUMMARY" in mdata:

@@ -16,6 +16,7 @@ import aiofiles
 from pyporscheconnectapi.account import PorscheConnectAccount
 from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import PorscheCaptchaRequiredError, PorscheWrongCredentialsError
+from pyporscheconnectapi.oauth2 import Captcha
 from pyporscheconnectapi.remote_services import RemoteServices
 
 vehicle_commands = {
@@ -222,8 +223,8 @@ async def save_token(session_file, token):
 async def main(args):
     """Get arguments from parser and run command."""
     try:
-        with Path.open(args.session_file) as json_file:
-            token = json.load(json_file)
+        async with aiofiles.open(Path(args.session_file), encoding="utf-8") as json_file:
+            token = json.loads(await json_file.read())
     except FileNotFoundError:
         token = {}
     except json.decoder.JSONDecodeError:
@@ -261,8 +262,7 @@ async def main(args):
 
                 captcha_code = await async_input("CAPTCHA: ")
 
-                connection = Connection(email, password, token=token, captcha_code=captcha_code, state=state)
-                controller = PorscheConnectAccount(connection=connection)
+                connection.oauth2_client.captcha = Captcha(captcha_code, state)
                 vehicles = await controller.get_vehicles()
 
             vins = (v.vin for v in vehicles)
