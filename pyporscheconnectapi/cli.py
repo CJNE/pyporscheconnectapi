@@ -48,6 +48,7 @@ try:
 
     console = Console()
     printc = console.print
+    printj = console.print_json
 except ImportError:
     pass
 
@@ -280,7 +281,10 @@ async def main(args):
     except PorscheWrongCredentialsError as e:
         sys.exit(e.message)
     else:
-        printc(response)
+        if args.json:
+            printj(json.dumps(response, indent=2))
+        else:
+            printc(response)
     await connection.close()
     await save_token(args.session_file, connection.token)
 
@@ -294,7 +298,7 @@ def add_arg_vin(parser):
 
 
 def cli():
-    """Get configuration parameters and command line argumentsn and run main loop."""
+    """Get configuration parameters and command line arguments and run main loop."""
     config = configparser.ConfigParser()
     config["porsche"] = {
         "email": "",
@@ -306,6 +310,7 @@ def cli():
     subparsers = parser.add_subparsers(help="command help", dest="command")
 
     parser.add_argument("-d", "--debug", dest="debug", action="store_true")
+    parser.add_argument("-j", "--json", dest="json", action="store_true")
     parser.add_argument(
         "-e",
         "--email",
