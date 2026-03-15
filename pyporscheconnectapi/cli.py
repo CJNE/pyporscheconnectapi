@@ -59,6 +59,37 @@ logging.root.setLevel(logging.WARNING)
 _LOGGER = logging.getLogger(__name__)
 
 
+async def load_token(session_file):
+    """Load the cached session token from disk."""
+    try:
+        async with aiofiles.open(Path(session_file), encoding="utf-8") as json_file:
+            return json.loads(await json_file.read())
+    except FileNotFoundError:
+        return {}
+    except json.decoder.JSONDecodeError:
+        return {}
+
+
+async def get_vehicles_with_captcha_retry(controller, connection):
+    """Fetch vehicles, prompting for a CAPTCHA challenge when required."""
+    try:
+        return await controller.get_vehicles()
+    except PorscheCaptchaRequiredError as captcha_err:
+        captcha_file = Path("porsche_captcha.html")
+        async with aiofiles.open(captcha_file, "w", encoding="utf-8") as f:
+            await f.write(f'<img src="{captcha_err.captcha}" />')
+
+        printc(
+            "\n⚠️ CAPTCHA required.\n"
+            f"CAPTCHA image written to: {captcha_file}\n"
+            "Open this file in your browser, solve the CAPTCHA, and enter the text below.",
+        )
+
+        captcha_code = await async_input("CAPTCHA: ")
+        connection.oauth2_client.captcha = Captcha(captcha_code, captcha_err.state)
+        return await controller.get_vehicles()
+
+
 async def battery(vehicle, _args):
     """Get vehicle battery state of charge (%)."""
     await vehicle.get_stored_overview()
@@ -222,13 +253,7 @@ async def save_token(session_file, token):
 
 async def main(args):
     """Get arguments from parser and run command."""
-    try:
-        async with aiofiles.open(Path(args.session_file), encoding="utf-8") as json_file:
-            token = json.loads(await json_file.read())
-    except FileNotFoundError:
-        token = {}
-    except json.decoder.JSONDecodeError:
-        token = {}
+    token = await load_token(args.session_file)
 
     if args.debug:
         logging.root.setLevel(logging.DEBUG)
@@ -244,27 +269,7 @@ async def main(args):
         if args.command == "token":
             response = controller.token
         else:
-            try:
-                vehicles = await controller.get_vehicles()
-            except PorscheCaptchaRequiredError as captcha_err:
-                captcha_svg = captcha_err.captcha
-                state = captcha_err.state
-
-                captcha_file = Path("porsche_captcha.html")
-                async with aiofiles.open(captcha_file, "w", encoding="utf-8") as f:
-                    await f.write(f'<img src="{captcha_svg}" />')
-
-                printc(
-                    "\n⚠️ CAPTCHA required.\n"
-                    f"CAPTCHA image written to: {captcha_file}\n"
-                    "Open this file in your browser, solve the CAPTCHA, and enter the text below.",
-                )
-
-                captcha_code = await async_input("CAPTCHA: ")
-
-                connection.oauth2_client.captcha = Captcha(captcha_code, state)
-                vehicles = await controller.get_vehicles()
-
+            vehicles = await get_vehicles_with_captcha_retry(controller, connection)
             vins = (v.vin for v in vehicles)
             if vins is None:
                 printc("No vehicles found.")

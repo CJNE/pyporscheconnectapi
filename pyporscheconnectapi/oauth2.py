@@ -2,6 +2,9 @@
 
 #  SPDX-License-Identifier: Apache-2.0
 import asyncio
+import base64
+import binascii
+import json
 import logging
 import re
 import time
@@ -236,6 +239,35 @@ class OAuth2Client:
         new_query.update(params)
         return new_query
 
+    def _extract_captcha_image(self, html: str):
+        """Extract the captcha image from Auth0 ACUL or legacy login HTML."""
+        script_match = re.search(r'atob\("([A-Za-z0-9+/=]+)"', html)
+        if script_match:
+            try:
+                decoded_json = base64.b64decode(script_match.group(1)).decode("utf-8")
+                context_data = json.loads(decoded_json)
+            except (ValueError, json.JSONDecodeError, binascii.Error) as exc:
+                _LOGGER.warning("Failed to parse Auth0 ACUL context: %s", exc)
+            else:
+                captcha_img = context_data.get("screen", {}).get("captcha", {}).get("image")
+                if captcha_img:
+                    _LOGGER.debug(
+                        "Parsed captcha from Auth0 ACUL context (length: %d)",
+                        len(captcha_img),
+                    )
+                    return captcha_img
+
+        soup = BeautifulSoup(html, "html.parser")
+        img_tag = soup.find("img", {"alt": "captcha"})
+        if img_tag:
+            return img_tag.get("src")
+
+        svg_match = re.search(r"(data:image/svg[^ ]+)", html)
+        if svg_match:
+            return svg_match.group(1)
+
+        return None
+
     async def login_with_identifier(self, state: str):
         """Log into the Identifier First flow.
 
@@ -284,43 +316,11 @@ class OAuth2Client:
         # In case captcha verification is required, the response code is 400 and the captcha is provided as a svg image
         if resp.status_code == 400:
             _LOGGER.debug("Captcha required.")
-            soup = BeautifulSoup(resp.text, "html.parser")
-            captcha_img = None
-
-            # Porsche uses Auth0 ACUL - captcha is in base64 JSON inside <script>
-            # window.universal_login_context = JSON.parse(...)
-            script_match = re.search(r'atob\("([A-Za-z0-9+/=]+)"', resp.text)
-            if script_match:
-                try:
-                    import base64 as b64mod
-                    import json as jsonmod
-
-                    decoded_json = b64mod.b64decode(script_match.group(1)).decode("utf-8")
-                    context_data = jsonmod.loads(decoded_json)
-                    captcha_img = context_data.get("screen", {}).get("captcha", {}).get("image")
-                    if captcha_img:
-                        _LOGGER.debug(
-                            "Parsed captcha from Auth0 ACUL context (length: %d)",
-                            len(captcha_img),
-                        )
-                except Exception as e:
-                    _LOGGER.warning("Failed to parse Auth0 ACUL context: %s", e)
-
-            # Fallback: try legacy <img> tag approach
-            if not captcha_img:
-                img_tag = soup.find("img", {"alt": "captcha"})
-                if img_tag:
-                    captcha_img = img_tag.get("src")
-
-            # Fallback: try finding SVG data URI directly in HTML
-            if not captcha_img:
-                svg_match = re.search(r"(data:image/svg[^ ]+)", resp.text)
-                if svg_match:
-                    captcha_img = svg_match.group(1)
-
+            captcha_img = self._extract_captcha_image(resp.text)
             if not captcha_img:
                 _LOGGER.error("Could not find captcha in response. HTML: %s", resp.text[:2000])
-                raise PorscheExceptionError("Captcha required but could not parse captcha image")
+                msg = "Captcha required but could not parse captcha image"
+                raise PorscheExceptionError(msg)
 
             _LOGGER.debug("Parsed captcha image: %s...", str(captcha_img)[:100])
             raise PorscheCaptchaRequiredError(captcha=captcha_img, state=state)
