@@ -3,6 +3,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
+import re
 import time
 from typing import NamedTuple
 from urllib.parse import parse_qs, urlparse
@@ -284,8 +285,44 @@ class OAuth2Client:
         if resp.status_code == 400:
             _LOGGER.debug("Captcha required.")
             soup = BeautifulSoup(resp.text, "html.parser")
-            captcha_img = soup.find("img", {"alt": "captcha"})["src"]
-            _LOGGER.debug("Parsed out SVG captcha: %s", captcha_img)
+            captcha_img = None
+
+            # Porsche uses Auth0 ACUL - captcha is in base64 JSON inside <script>
+            # window.universal_login_context = JSON.parse(...)
+            script_match = re.search(r'atob\("([A-Za-z0-9+/=]+)"', resp.text)
+            if script_match:
+                try:
+                    import base64 as b64mod
+                    import json as jsonmod
+
+                    decoded_json = b64mod.b64decode(script_match.group(1)).decode("utf-8")
+                    context_data = jsonmod.loads(decoded_json)
+                    captcha_img = context_data.get("screen", {}).get("captcha", {}).get("image")
+                    if captcha_img:
+                        _LOGGER.debug(
+                            "Parsed captcha from Auth0 ACUL context (length: %d)",
+                            len(captcha_img),
+                        )
+                except Exception as e:
+                    _LOGGER.warning("Failed to parse Auth0 ACUL context: %s", e)
+
+            # Fallback: try legacy <img> tag approach
+            if not captcha_img:
+                img_tag = soup.find("img", {"alt": "captcha"})
+                if img_tag:
+                    captcha_img = img_tag.get("src")
+
+            # Fallback: try finding SVG data URI directly in HTML
+            if not captcha_img:
+                svg_match = re.search(r"(data:image/svg[^ ]+)", resp.text)
+                if svg_match:
+                    captcha_img = svg_match.group(1)
+
+            if not captcha_img:
+                _LOGGER.error("Could not find captcha in response. HTML: %s", resp.text[:2000])
+                raise PorscheExceptionError("Captcha required but could not parse captcha image")
+
+            _LOGGER.debug("Parsed captcha image: %s...", str(captcha_img)[:100])
             raise PorscheCaptchaRequiredError(captcha=captcha_img, state=state)
 
         # 2. /u/login/password w/ password
