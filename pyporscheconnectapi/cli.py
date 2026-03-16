@@ -77,7 +77,7 @@ async def get_vehicles_with_captcha_retry(controller, connection):
     except PorscheCaptchaRequiredError as captcha_err:
         captcha_file = Path("porsche_captcha.html")
         async with aiofiles.open(captcha_file, "w", encoding="utf-8") as f:
-            await f.write(f'<img src="{captcha_err.captcha}" />')
+            await f.write(f'<!doctype html><html lang="en"><title>Captcha</title><body><img src="{captcha_err.captcha}"/></body></html>')
 
         printc(
             "\n⚠️ CAPTCHA required.\n"
