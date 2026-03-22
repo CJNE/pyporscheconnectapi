@@ -253,10 +253,11 @@ async def save_token(session_file, token):
 
 
 def obj_to_json(obj):
-    """Convert Python objects of type 'datetime' or 'date' to json"""
+    """Convert Python objects of type 'datetime' or 'date' to json."""
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError (f"Object of type {type(obj)} cannot be converted to json")
+    msg = f"Can't convert type {type(obj)}"
+    raise TypeError (msg)
 
 
 async def main(args):
