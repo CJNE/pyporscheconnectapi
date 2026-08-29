@@ -164,12 +164,12 @@ class PorscheVehicle:
         """Return true if tire pressure is within the tolerances."""
         tire_pressure_status = self.data.get("TIRE_PRESSURE")
         return (
-            not sorted(
+            not max(
                 map(
                     abs,
                     [tire_pressure_status[key]["differenceBar"] for key in tire_pressure_status if key.endswith("Tire")],
                 ),
-            )[-1]
+            )
             > TIRE_PRESSURE_TOLERANCE
         )
 
