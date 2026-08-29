@@ -9,7 +9,7 @@ import logging
 import re
 import time
 from typing import NamedTuple
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -175,7 +175,7 @@ class OAuth2Client:
 
                 # completed the Identifier First flow, now resume the auth code request
                 params = await self.get_and_extract_location_params(
-                    f"https://{AUTHORIZATION_SERVER}{resume_path}",
+                    urljoin(f"https://{AUTHORIZATION_SERVER}", resume_path),
                 )
                 authorization_code = params.get("code", [None])[0]
 
@@ -190,7 +190,7 @@ class OAuth2Client:
             try:
                 resume_path = await self.login_with_identifier(self.captcha.state)
                 params = await self.get_and_extract_location_params(
-                    f"https://{AUTHORIZATION_SERVER}{resume_path}",
+                    urljoin(f"https://{AUTHORIZATION_SERVER}", resume_path),
                 )
                 authorization_code = params.get("code", [None])[0]
 
