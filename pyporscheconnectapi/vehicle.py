@@ -168,8 +168,6 @@ class PorscheVehicle:
             for key in tire_pressure_status
             if key.endswith("Tire")
         ]
-        # No per-tire readings (or no TIRE_PRESSURE at all): nothing out of
-        # tolerance, so report OK rather than IndexError on an empty list.
         if not differences:
             return True
         return max(differences) <= TIRE_PRESSURE_TOLERANCE
@@ -349,9 +347,6 @@ class PorscheVehicle:
                 json.dumps(self.status, indent=2),
             )
 
-            # Use .get via membership test: not every vehicle reports every
-            # base field (e.g. systemInfo/timestamp can be absent), and a
-            # missing key here used to KeyError the whole parse.
             bdata = {k: self.status[k] for k in BASE_DATA if k in self.status}
 
             bdata["name"] = self.status["customName"] if "customName" in self.status else bdata["modelName"]
@@ -366,8 +361,6 @@ class PorscheVehicle:
                 tdata = [m for m in self.status["measurements"] if m["status"]["isEnabled"]]
 
                 for m in tdata:
-                    # An enabled measurement can still omit "value" (e.g.
-                    # transient API states); skip it rather than KeyError.
                     if "value" in m:
                         mdata[m["key"]] = m["value"]
 
