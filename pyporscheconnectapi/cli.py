@@ -8,6 +8,7 @@ import configparser
 import json
 import logging
 import sys
+from datetime import date, datetime
 from getpass import getpass
 from pathlib import Path
 
@@ -251,6 +252,14 @@ async def save_token(session_file, token):
         await f.write(json.dumps(token, ensure_ascii=False, indent=2))
 
 
+def obj_to_json(obj):
+    """Convert Python objects of type 'datetime' or 'date' to json."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    msg = f"Can't convert type {type(obj)}"
+    raise TypeError (msg)
+
+
 async def main(args):
     """Get arguments from parser and run command."""
     token = await load_token(args.session_file)
@@ -287,7 +296,7 @@ async def main(args):
         sys.exit(e.message)
     else:
         if args.json:
-            printj(json.dumps(response, indent=2))
+            printj(json.dumps(response, indent=2, sort_keys=True, default=obj_to_json))
         else:
             printc(response)
     await connection.close()
