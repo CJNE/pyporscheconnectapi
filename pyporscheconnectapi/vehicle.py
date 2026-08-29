@@ -162,16 +162,15 @@ class PorscheVehicle:
     @property
     def tire_pressure_status(self) -> bool:
         """Return true if tire pressure is within the tolerances."""
-        tire_pressure_status = self.data.get("TIRE_PRESSURE")
-        return (
-            not max(
-                map(
-                    abs,
-                    [tire_pressure_status[key]["differenceBar"] for key in tire_pressure_status if key.endswith("Tire")],
-                ),
-            )
-            > TIRE_PRESSURE_TOLERANCE
-        )
+        tire_pressure_status = self.data.get("TIRE_PRESSURE") or {}
+        differences = [
+            abs(tire_pressure_status[key]["differenceBar"])
+            for key in tire_pressure_status
+            if key.endswith("Tire")
+        ]
+        if not differences:
+            return True
+        return max(differences) <= TIRE_PRESSURE_TOLERANCE
 
     @property
     def tire_pressures(self) -> bool:
@@ -207,6 +206,51 @@ class PorscheVehicle:
             lat, lon = None, None
 
         return (lat, lon, heading)
+
+    @property
+    def mileage(self) -> int | None:
+        """Return the odometer reading in kilometers."""
+        return self.data.get("MILEAGE", {}).get("kilometers")
+
+    @property
+    def remaining_range(self) -> int | None:
+        """Return the total remaining driving range in kilometers.
+
+        For combustion vehicles this is the fuel range; for BEV/PHEV the API
+        reports the combined range under the same RANGE measurement.
+        """
+        return self.data.get("RANGE", {}).get("kilometers")
+
+    @property
+    def electric_range(self) -> int | None:
+        """Return the electric-only range in kilometers (BEV/PHEV), if reported."""
+        return self.data.get("E_RANGE", {}).get("kilometers")
+
+    @property
+    def fuel_level(self) -> int | None:
+        """Return the fuel tank level as a percentage (combustion/PHEV)."""
+        return self.data.get("FUEL_LEVEL", {}).get("percent")
+
+    @property
+    def fuel_reserve(self) -> int | None:
+        """Return the fuel reserve threshold as a percentage (combustion/PHEV)."""
+        return self.data.get("FUEL_RESERVE", {}).get("percent")
+
+    @property
+    def service_intervals(self) -> dict[str, dict[str, int | None]]:
+        """Return upcoming service intervals (distance in km, time in days).
+
+        Keys mirror the API measurements: ``main``, ``oil`` and
+        ``intermediate``. Each maps to ``{"kilometers": …, "days": …}`` with
+        ``None`` for whichever value the vehicle does not report.
+        """
+        return {
+            name: {
+                "kilometers": self.data.get(f"{prefix}_SERVICE_RANGE", {}).get("kilometers"),
+                "days": self.data.get(f"{prefix}_SERVICE_TIME", {}).get("days"),
+            }
+            for name, prefix in (("main", "MAIN"), ("oil", "OIL"), ("intermediate", "INTERMEDIATE"))
+        }
 
     async def get_stored_overview(self) -> None:
         """Return stored vechicle status overview."""
@@ -303,7 +347,7 @@ class PorscheVehicle:
                 json.dumps(self.status, indent=2),
             )
 
-            bdata = {k: self.status[k] for k in BASE_DATA}
+            bdata = {k: self.status[k] for k in BASE_DATA if k in self.status}
 
             bdata["name"] = self.status["customName"] if "customName" in self.status else bdata["modelName"]
 
@@ -317,7 +361,8 @@ class PorscheVehicle:
                 tdata = [m for m in self.status["measurements"] if m["status"]["isEnabled"]]
 
                 for m in tdata:
-                    mdata[m["key"]] = m["value"]
+                    if "value" in m:
+                        mdata[m["key"]] = m["value"]
 
                 if "CHARGING_RATE" in mdata and not mdata.get("CHARGING_RATE", {}).get("chargingRate"):
                     # Charging is currently not ongoing, but we should still feed some data to the sensor
