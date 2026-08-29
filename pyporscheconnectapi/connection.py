@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 
 import httpx
 
@@ -13,6 +14,24 @@ from .exceptions import PorscheExceptionError
 from .oauth2 import Captcha, Credentials, OAuth2Client, OAuth2Token
 
 _LOGGER = logging.getLogger(__name__)
+
+# HTTP status codes that justify a retry (transient server-side issues):
+# 429 (rate limit), 502/503/504 (gateway / upstream timeouts)
+_RETRY_STATUS_CODES = frozenset({429, 502, 503, 504})
+_MAX_RETRIES = 3
+_MAX_RETRY_DELAY = 30.0
+
+
+def _compute_retry_delay(response: httpx.Response, attempt: int) -> float:
+    """Return how many seconds to wait before retrying after a transient error.
+
+    Prefer the server-provided Retry-After header (RFC 9110 §10.2.3) if
+    provided as digit, otherwise fall back to exponential backoff (2s, 4s, 8s).
+    """
+    retry_after = response.headers.get("retry-after", "")
+    if retry_after.isdigit():
+        return min(float(retry_after), _MAX_RETRY_DELAY)
+    return min((2 ** (attempt + 1)), _MAX_RETRY_DELAY)
 
 
 async def log_request(request):
@@ -81,22 +100,32 @@ class Connection:
         """Make a DELETE request to the Porsche Connect API."""
         return await self.request("DELETE", url, data=data, json=json)
 
-    async def request(self, method, url, **kwargs):
+    async def request(self, method, url, **kwargs):  # noqa: RET503 - loop body always returns or raises
         """Create a request to the Porsche Connect API."""
-        try:
-            async with self.token_lock:
-                await self.oauth2_client.ensure_valid_token(self.token)
-            resp = await self.asyncClient.request(
-                method,
-                f"{API_BASE_URL}{url}",
-                headers=self.headers | {"Authorization": f"Bearer {self.token.access_token}"},
-                timeout=TIMEOUT,
-                **kwargs,
-            )
-            resp.raise_for_status()  # A common error seem to be: httpx.HTTPStatusError: Server error '504 Gateway Time-out'
-            return resp.json()
-        except httpx.HTTPStatusError as exc:
-            raise PorscheExceptionError(exc.response.status_code) from exc
+        async with self.token_lock:
+            await self.oauth2_client.ensure_valid_token(self.token)
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                resp = await self.asyncClient.request(
+                    method,
+                    f"{API_BASE_URL}{url}",
+                    headers=self.headers | {"Authorization": f"Bearer {self.token.access_token}"},
+                    timeout=TIMEOUT,
+                    **kwargs,
+                )
+                resp.raise_for_status()
+                return resp.json()
+            except httpx.HTTPStatusError as exc:  # noqa: PERF203
+                status = exc.response.status_code
+                if status not in _RETRY_STATUS_CODES or attempt == _MAX_RETRIES:
+                    raise PorscheExceptionError(status) from exc
+                delay = _compute_retry_delay(exc.response, attempt)
+                _LOGGER.warning(
+                    "Transient HTTP %s on %s - retrying in %.1fs (attempt %d/%d)",
+                    status, url, delay, attempt + 1, _MAX_RETRIES,
+                )
+                await asyncio.sleep(delay)
 
     async def close(self):
         """Close the asyncClient connection."""
