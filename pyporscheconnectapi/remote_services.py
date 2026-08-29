@@ -300,10 +300,6 @@ class RemoteServices:
 
         _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
 
-        # For an immediate (non-ACCEPTED) result, wrap the bare result code in
-        # the same dict shape the polling endpoint returns so the constructor
-        # can extract it the same way — otherwise `state` would silently stay
-        # UNKNOWN for PERFORMED/ERROR replies.
         if status_id and result_code == "ACCEPTED":
             status = await self._block_until_done(status_id)
         else:
