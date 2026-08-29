@@ -53,16 +53,12 @@ class RemoteServiceStatus:
 
     def __init__(self, response: dict, status_id: str | None = None) -> None:
         """Construct a new object from a dict."""
-        # `response` must be a dict shaped like `{"status": {"result": "..."}}`.
-        # Callers passing a bare result code (e.g. "PERFORMED") would silently
-        # land in the UNKNOWN state because `"status" in "PERFORMED"` is False.
         status = None
         if isinstance(response, dict) and "status" in response:
             status = response.get("status", {}).get("result")
 
         self.status = status
-        # Tolerate result codes outside the enum (e.g. "REJECTED" if the API
-        # ever introduces one) rather than raising during construction.
+
         try:
             self.state = ExecutionState(status or "UNKNOWN")
         except ValueError:
