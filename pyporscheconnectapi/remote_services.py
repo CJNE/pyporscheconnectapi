@@ -54,11 +54,15 @@ class RemoteServiceStatus:
     def __init__(self, response: dict, status_id: str | None = None) -> None:
         """Construct a new object from a dict."""
         status = None
-        if "status" in response:
+        if isinstance(response, dict) and "status" in response:
             status = response.get("status", {}).get("result")
 
         self.status = status
-        self.state = ExecutionState(status or "UNKNOWN")
+
+        try:
+            self.state = ExecutionState(status or "UNKNOWN")
+        except ValueError:
+            self.state = ExecutionState.UNKNOWN
         self.details = response
         self.status_id = status_id
 
@@ -296,7 +300,10 @@ class RemoteServices:
 
         _LOGGER.debug("Got result: %s (%s)", result_code, status_id)
 
-        status = await self._block_until_done(status_id) if status_id and result_code == "ACCEPTED" else RemoteServiceStatus(result_code)
+        if status_id and result_code == "ACCEPTED":
+            status = await self._block_until_done(status_id)
+        else:
+            status = RemoteServiceStatus({"status": {"result": result_code}})
 
         await asyncio.sleep(_POLLING_DELAY)
         await self._vehicle.get_stored_overview()
