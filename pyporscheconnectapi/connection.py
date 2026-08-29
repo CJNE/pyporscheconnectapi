@@ -15,31 +15,23 @@ from .oauth2 import Captcha, Credentials, OAuth2Client, OAuth2Token
 
 _LOGGER = logging.getLogger(__name__)
 
-# HTTP status codes that justify a retry (transient server-side issues).
-# 429 (rate limit), 502/503/504 (gateway / upstream timeouts) — all surface
-# during normal Porsche Connect usage and are the recommended retry targets
-# per the upstream maintainer's comments on issues #61 and #63.
+# HTTP status codes that justify a retry (transient server-side issues):
+# 429 (rate limit), 502/503/504 (gateway / upstream timeouts)
 _RETRY_STATUS_CODES = frozenset({429, 502, 503, 504})
 _MAX_RETRIES = 3
-# Cap a single retry delay so a misbehaving server can't pin a caller for
-# minutes on a Retry-After header.
 _MAX_RETRY_DELAY = 30.0
 
 
 def _compute_retry_delay(response: httpx.Response, attempt: int) -> float:
     """Return how many seconds to wait before retrying after a transient error.
 
-    Prefer the server-provided Retry-After header (RFC 9110 §10.2.3) when
-    it's a positive integer of seconds — that's what's been served in
-    practice by the Porsche API on 429. Otherwise fall back to exponential
-    backoff (1s, 2s, 4s) with jitter to spread out concurrent retries.
+    Prefer the server-provided Retry-After header (RFC 9110 §10.2.3) if
+    provided as digit, otherwise fall back to exponential backoff (2s, 4s, 8s).
     """
     retry_after = response.headers.get("retry-after", "")
     if retry_after.isdigit():
         return min(float(retry_after), _MAX_RETRY_DELAY)
-    # secrets.randbelow keeps this deterministic-free without pulling random.
-    jitter = secrets.randbelow(300) / 1000.0  # 0-0.3s
-    return min((2 ** attempt) + jitter, _MAX_RETRY_DELAY)
+    return min((2 ** (attempt + 1)), _MAX_RETRY_DELAY)
 
 
 async def log_request(request):
@@ -109,15 +101,7 @@ class Connection:
         return await self.request("DELETE", url, data=data, json=json)
 
     async def request(self, method, url, **kwargs):  # noqa: RET503 - loop body always returns or raises
-        """Create a request to the Porsche Connect API.
-
-        Retries up to `_MAX_RETRIES` times on transient errors (429/502/
-        503/504) - these are server-side hiccups the Porsche API surfaces
-        regularly and that previously caused the whole integration to
-        report SETUP_RETRY or mark every entity Unavailable (issues #61
-        and #63). Non-transient HTTP errors (4xx other than 429) are
-        raised immediately as before.
-        """
+        """Create a request to the Porsche Connect API."""
         async with self.token_lock:
             await self.oauth2_client.ensure_valid_token(self.token)
 
