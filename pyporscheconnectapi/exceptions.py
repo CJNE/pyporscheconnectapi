@@ -56,13 +56,15 @@ class PorscheCaptchaRequiredError(PorscheExceptionError):
 
     captcha: str = None
     state: str = None
+    code_verifier: str = None
 
-    def __init__(self, captcha=None, state=None):
+    def __init__(self, captcha=None, state=None, code_verifier=None):
         """Initialize the captcha exception."""
         if captcha is not None and state is not None:
-            _LOGGER.info("Initialising captcha exception: %s, %s", captcha, state)
+            _LOGGER.debug("Initialising captcha exception, state %s", state)
             self.captcha = captcha
             self.state = state
+            self.code_verifier = code_verifier
 
         super().__init__(captcha, state)
 

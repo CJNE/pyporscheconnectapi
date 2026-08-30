@@ -113,6 +113,8 @@ class OAuth2Client:
         credentials: Credentials,
         captcha: Captcha,
         leeway: int = 60,
+        *,
+        code_verifier: str | None = None,
     ):
         """Initialise the oauth2 client."""
         self.client = client
@@ -120,7 +122,7 @@ class OAuth2Client:
         self.captcha = captcha
         self.leeway = leeway
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
-        self.code_verifier: str | None = None
+        self.code_verifier: str | None = code_verifier
 
     def _generate_pkce_verifier(self) -> str:
         """Generate a PKCE code verifier (RFC 7636 section 4.1)."""
@@ -441,7 +443,11 @@ class OAuth2Client:
                 raise PorscheExceptionError(msg)
 
             _LOGGER.debug("Parsed captcha image: %s...", str(captcha_img)[:100])
-            raise PorscheCaptchaRequiredError(captcha=captcha_img, state=state)
+            raise PorscheCaptchaRequiredError(
+                captcha=captcha_img,
+                state=state,
+                code_verifier=self.code_verifier,
+            )
 
         # 2. /u/login/password w/ password
 
