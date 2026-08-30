@@ -118,7 +118,11 @@ class Connection:
             except httpx.HTTPStatusError as exc:  # noqa: PERF203
                 status = exc.response.status_code
                 if status not in _RETRY_STATUS_CODES or attempt == _MAX_RETRIES:
-                    raise PorscheExceptionError(status) from exc
+                    raise PorscheExceptionError(
+                        status,
+                        response_body=exc.response.text[:1000] or None,
+                        request_url=str(exc.request.url),
+                    ) from exc
                 delay = _compute_retry_delay(exc.response, attempt)
                 _LOGGER.warning(
                     "Transient HTTP %s on %s - retrying in %.1fs (attempt %d/%d)",
