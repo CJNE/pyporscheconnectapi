@@ -373,7 +373,11 @@ class PorscheVehicle:
                     # This attribute gives the chargingRate in the odd unit kilometers per minute. We add a km/h attribute.
                     mdata["CHARGING_RATE"]["chargingRate-kph"] = mdata["CHARGING_RATE"]["chargingRate"] * 60
 
-                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
+                if "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("targetSoC") is not None:
+                    # Newer payloads expose the active target SoC directly.
+                    mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["targetSoC"]
+
+                elif "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "PROFILE":
                     # If charging profiles are enabled, get minSoC from this dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]
 
@@ -381,7 +385,12 @@ class PorscheVehicle:
                     # If charging on departures are enabled, get minSoC from the CHARGING_SETTINGS dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SETTINGS"]["targetSoc"]
 
-                if "DEPARTURES" not in mdata and "CHARGING_SUMMARY" in mdata and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT":
+                if (
+                    "DEPARTURES" not in mdata
+                    and "CHARGING_SUMMARY" in mdata
+                    and mdata.get("CHARGING_SUMMARY", {}).get("mode") == "DIRECT"
+                    and mdata.get("CHARGING_SUMMARY", {}).get("minSoC") is None
+                ):
                     # If direct charging is ongoing, minSoC is set to None in the API. We set it till 100 instead.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = 100
 
