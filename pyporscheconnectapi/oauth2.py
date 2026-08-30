@@ -120,9 +120,6 @@ class OAuth2Client:
         self.captcha = captcha
         self.leeway = leeway
         self.headers = {"User-Agent": USER_AGENT, "X-Client-ID": X_CLIENT_ID}
-        # PKCE verifier for the authorization request currently in flight. It is
-        # created before /authorize and has to survive a captcha round trip,
-        # since the challenge is bound to that Auth0 transaction.
         self.code_verifier: str | None = None
 
     def _generate_pkce_verifier(self) -> str:
@@ -210,9 +207,6 @@ class OAuth2Client:
         else:
             try:
                 if self.code_verifier is None:
-                    # The challenge was bound to the Auth0 transaction created by the
-                    # /authorize request that produced this captcha. Generating a new
-                    # verifier here would yield a code that cannot be exchanged.
                     msg = "PKCE_VERIFIER_MISSING_FOR_CAPTCHA_RESUME"
                     raise PorscheExceptionError(msg)
 
@@ -355,10 +349,6 @@ class OAuth2Client:
 
     async def resume_authorization_code_flow(self, url: str) -> str:
         """Follow the Auth0 redirect chain until the authorization code is returned.
-
-        The resume URL used to redirect straight to the callback. Porsche now
-        interleaves optional screens - currently passkey enrollment - so the
-        chain has to be walked rather than read from a single Location header.
 
         :param url: resume URL returned by the Identifier First flow
         :return: authorization code to be exchanged for an access token
