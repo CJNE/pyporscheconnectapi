@@ -163,11 +163,7 @@ class PorscheVehicle:
     def tire_pressure_status(self) -> bool:
         """Return true if tire pressure is within the tolerances."""
         tire_pressure_status = self.data.get("TIRE_PRESSURE") or {}
-        differences = [
-            abs(tire_pressure_status[key]["differenceBar"])
-            for key in tire_pressure_status
-            if key.endswith("Tire")
-        ]
+        differences = [abs(tire_pressure_status[key]["differenceBar"]) for key in tire_pressure_status if key.endswith("Tire")]
         if not differences:
             return True
         return max(differences) <= TIRE_PRESSURE_TOLERANCE
@@ -381,7 +377,7 @@ class PorscheVehicle:
                     # If charging profiles are enabled, get minSoC from this dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SUMMARY"]["chargingProfile"]["minSoC"]
 
-                if "DEPARTURES" in mdata and mdata.get("CHARGING_SETTINGS", {}).get("targetSoc"):
+                if "DEPARTURES" in mdata and mdata.get("CHARGING_SETTINGS", {}).get("targetSoc") and mdata.get("CHARGING_SUMMARY", {}).get("targetSoC") is None:
                     # If charging on departures are enabled, get minSoC from the CHARGING_SETTINGS dict.
                     mdata["CHARGING_SUMMARY"]["minSoC"] = mdata["CHARGING_SETTINGS"]["targetSoc"]
 
