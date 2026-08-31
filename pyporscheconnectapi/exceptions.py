@@ -9,9 +9,11 @@ _LOGGER = logging.getLogger(__name__)
 class PorscheExceptionError(Exception):
     """Class of Porsche API exceptions."""
 
-    def __init__(self, code=None, *args, **kwargs) -> None:
+    def __init__(self, code=None, *args, response_body=None, request_url=None, **kwargs) -> None:
         """Initialize exceptions for the Porsche API."""
         self.message = ""
+        self.response_body = response_body
+        self.request_url = request_url
         super().__init__(*args, **kwargs)
         if code is not None:
             self.code = code
@@ -41,6 +43,9 @@ class PorscheExceptionError(Exception):
             elif self.code > 299:
                 self.message = f"UNKNOWN_ERROR_{self.code}"
 
+        if self.response_body:
+            self.message = f"{self.message}: {self.response_body}"
+
 
 class PorscheWrongCredentialsError(PorscheExceptionError):
     """Class of exceptions for incomplete credentials."""
@@ -51,13 +56,15 @@ class PorscheCaptchaRequiredError(PorscheExceptionError):
 
     captcha: str = None
     state: str = None
+    code_verifier: str = None
 
-    def __init__(self, captcha=None, state=None):
+    def __init__(self, captcha=None, state=None, code_verifier=None):
         """Initialize the captcha exception."""
         if captcha is not None and state is not None:
-            _LOGGER.info("Initialising captcha exception: %s, %s", captcha, state)
+            _LOGGER.debug("Initialising captcha exception, state %s", state)
             self.captcha = captcha
             self.state = state
+            self.code_verifier = code_verifier
 
         super().__init__(captcha, state)
 
