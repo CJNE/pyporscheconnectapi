@@ -162,8 +162,7 @@ class PorscheVehicle:
     @property
     def tire_pressure_status(self) -> bool:
         """Return true if tire pressure is within the tolerances."""
-        tire_pressure_status = self.data.get("TIRE_PRESSURE") or {}
-        differences = [abs(tire_pressure_status[key]["differenceBar"]) for key in tire_pressure_status if key.endswith("Tire")]
+        differences = [abs(tp["difference"]) for tp in (self.tire_pressures or {}).values() if tp.get("difference") is not None]
         if not differences:
             return True
         return max(differences) <= TIRE_PRESSURE_TOLERANCE
@@ -171,7 +170,16 @@ class PorscheVehicle:
     @property
     def tire_pressures(self) -> bool:
         """Return a dict containing tire pressure readings."""
-        return self.data.get("TIRE_PRESSURE")
+        result = {}
+        for key, value in self.data.items():
+            if key.startswith("TIRE_PRESSURE_") and isinstance(value, dict):
+                position = key[len("TIRE_PRESSURE_") :].lower()
+                result[position] = {
+                    "current": value.get("actualPressureBar"),
+                    "difference": value.get("differenceBar"),
+                    "lastModified": value.get("lastModified"),
+                }
+        return result or None
 
     @property
     def has_tire_pressure_monitoring(self) -> bool:
