@@ -90,6 +90,20 @@ class PorscheVehicle:
         return self.data.get("connect", "not available")
 
     @property
+    def last_global_update(self) -> datetime.datetime | None:
+        """Return the vehicle-reported global data timestamp, if available."""
+        ts = self.data.get("GLOBAL_TIMESTAMP", {}).get("timestamp")
+        return _parse_porsche_datetime(ts) if ts else None
+
+    @property
+    def data_age(self) -> datetime.timedelta | None:
+        """Return how old the reported vehicle data is, or None if unknown."""
+        last = self.last_global_update
+        if last is None:
+            return None
+        return datetime.datetime.now(datetime.UTC) - last
+
+    @property
     def has_remote_services(self) -> bool:
         """Return true if remote services are available."""
         return self.data.get("REMOTE_ACCESS_AUTHORIZATION", {}).get("isEnabled") is True
