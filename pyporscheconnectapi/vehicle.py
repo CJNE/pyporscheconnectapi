@@ -220,8 +220,8 @@ class PorscheVehicle:
 
     @property
     def has_tire_pressure_monitoring(self) -> bool:
-        """Return True if vehicle has tire pressure monitoring."""
-        return self.data.get("TIRE_PRESSURE") is not None
+        """Return True if the vehicle reports any tyre pressure measurement."""
+        return any(key.startswith("TIRE_PRESSURE_") and isinstance(value, dict) for key, value in self.data.items())
 
     @property
     def charging_target(self) -> bool | None:
