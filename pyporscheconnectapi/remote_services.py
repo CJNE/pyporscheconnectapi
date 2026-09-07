@@ -22,7 +22,7 @@ _POLLING_DELAY = 1
 _POLLING_TIMEOUT = 240
 
 
-class StrEnum(str, Enum):  # noqa: UP042
+class StrEnum(str, Enum):
     """A string enumeration of type `(str, Enum)`. All members are compared via `upper()`. Defaults to UNKNOWN."""
 
     @classmethod
