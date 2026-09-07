@@ -12,7 +12,7 @@ from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import PorscheExceptionError
 from pyporscheconnectapi.remote_services import RemoteServices
 
-from .const import COMMANDS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATISTICS
+from .const import COMMANDS, DESTINATIONS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATISTICS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -339,6 +339,26 @@ class PorscheVehicle:
         except PorscheExceptionError as err:
             _LOGGER.exception(
                 "Could not get capabilities, error communicating with API: %s",
+                err.message,
+            )
+
+    async def get_destinations(self) -> None:
+        """Fetch navigation destinations (favourites).
+
+        Kept separate from the overview poll: this list is user-curated, changes
+        rarely and can be large. Populates self.data with the DESTINATIONS entry.
+        """
+        measurements = "mf=" + "&mf=".join(DESTINATIONS)
+
+        try:
+            _LOGGER.debug("Getting destinations for vehicle %s", self.vin)
+            self.status = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}?{measurements}",
+            )
+            self._update_vehicle_data()
+        except PorscheExceptionError as err:
+            _LOGGER.exception(
+                "Could not get destinations, error communicating with API: %s",
                 err.message,
             )
 

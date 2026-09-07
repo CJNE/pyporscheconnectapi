@@ -29,6 +29,7 @@ vehicle_commands = {
     "climatise_on": "Start remote climatisation",
     "connected": "Check if vehicle is on-line",
     "currentoverview": "Poll vehicle for current overview",
+    "destinations": "Get navigation favourites",
     "direct_charge_off": "Disable direct charging",
     "direct_charge_on": "Enable direct charging",
     "doors_and_lids": "List status of all doors and lids",
@@ -81,9 +82,7 @@ async def get_vehicles_with_captcha_retry(controller, connection):
             await f.write(f'<!doctype html><html lang="en"><title>Captcha</title><body><img src="{captcha_err.captcha}"/></body></html>')
 
         printc(
-            "\n⚠️ CAPTCHA required.\n"
-            f"CAPTCHA image written to: {captcha_file}\n"
-            "Open this file in your browser, solve the CAPTCHA, and enter the text below.",
+            f"\n⚠️ CAPTCHA required.\nCAPTCHA image written to: {captcha_file}\nOpen this file in your browser, solve the CAPTCHA, and enter the text below.",
         )
 
         captcha_code = await async_input("CAPTCHA: ")
@@ -148,6 +147,12 @@ async def currentoverview(vehicle, _args):
     """Get current overview from vehicle."""
     await vehicle.get_current_overview()
     return vehicle.data
+
+
+async def destinations(vehicle, _args):
+    """Get navigation destinations."""
+    await vehicle.get_destinations()
+    return vehicle.data.get("DESTINATIONS")
 
 
 async def direct_charge_off(vehicle, _args):
@@ -222,7 +227,7 @@ async def tire_pressures(vehicle, _args):
 
 
 async def trip_statistics(vehicle, _args):
-    """Get pictures (uri) of the vehicle."""
+    """Get trip statistics from backend."""
     await vehicle.get_trip_statistics()
     return vehicle.trip_statistics
 
@@ -257,7 +262,7 @@ def obj_to_json(obj):
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
     msg = f"Can't convert type {type(obj)}"
-    raise TypeError (msg)
+    raise TypeError(msg)
 
 
 async def main(args):
