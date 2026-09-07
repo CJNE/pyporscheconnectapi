@@ -12,7 +12,7 @@ from pyporscheconnectapi.connection import Connection
 from pyporscheconnectapi.exceptions import PorscheExceptionError
 from pyporscheconnectapi.remote_services import RemoteServices
 
-from .const import COMMANDS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATISTICS
+from .const import COMMANDS, DESTINATIONS, MEASUREMENTS, TIRE_PRESSURE_TOLERANCE, TRIP_STATISTICS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +90,20 @@ class PorscheVehicle:
         return self.data.get("connect", "not available")
 
     @property
+    def last_global_update(self) -> datetime.datetime | None:
+        """Return the vehicle-reported global data timestamp, if available."""
+        ts = self.data.get("GLOBAL_TIMESTAMP", {}).get("timestamp")
+        return _parse_porsche_datetime(ts) if ts else None
+
+    @property
+    def data_age(self) -> datetime.timedelta | None:
+        """Return how old the reported vehicle data is, or None if unknown."""
+        last = self.last_global_update
+        if last is None:
+            return None
+        return datetime.datetime.now(datetime.UTC) - last
+
+    @property
     def has_remote_services(self) -> bool:
         """Return true if remote services are available."""
         return self.data.get("REMOTE_ACCESS_AUTHORIZATION", {}).get("isEnabled") is True
@@ -115,7 +129,7 @@ class PorscheVehicle:
     @property
     def has_remote_climatisation(self) -> bool:
         """Return True if vehicle has remote climatisation ability."""
-        return self.data.__contains__("CLIMATIZER_STATE")
+        return isinstance(self.data.get("HVAC_SUMMARY"), dict)
 
     @property
     def has_direct_charge(self) -> bool:
@@ -135,9 +149,32 @@ class PorscheVehicle:
     @property
     def remote_climatise_on(self) -> bool:
         """Return True if remote climatisation is on."""
-        _LOGGER.debug("Remote climatisation is: %s", self.data.get("CLIMATIZER_STATE", {}).get("isOn"))
+        status = self.data.get("HVAC_SUMMARY", {}).get("status")
+        _LOGGER.debug("Remote climatisation status is: %s", status)
+        return status is not None and status != "OFF"
 
-        return self.data.get("CLIMATIZER_STATE", {}).get("isOn")
+    @property
+    def climatisation_target_temperature(self) -> float | None:
+        """Return the climatisation target temperature in °C, if reported."""
+        kelvin = self.data.get("HVAC_SUMMARY", {}).get("targetTemperature")
+        return round(kelvin - 273.15, 1) if kelvin is not None else None
+
+    @property
+    def climatisation_remaining_time(self) -> int | None:
+        """Return remaining climatisation time in minutes while active, else None."""
+        return self.data.get("HVAC_SUMMARY", {}).get("remainingTime")
+
+    @property
+    def seat_heating(self) -> dict | None:
+        """Return seat heating state per position, if reported."""
+        zones = self.data.get("HVAC_SUMMARY", {}).get("climateZonesEnabled")
+        return zones if isinstance(zones, dict) else None
+
+    @property
+    def seat_heating_on(self) -> bool:
+        """Return True if any seat heating zone is active."""
+        zones = self.data.get("HVAC_SUMMARY", {}).get("climateZonesEnabled") or {}
+        return any(zones.values())
 
     @property
     def vehicle_locked(self) -> bool:
@@ -162,8 +199,7 @@ class PorscheVehicle:
     @property
     def tire_pressure_status(self) -> bool:
         """Return true if tire pressure is within the tolerances."""
-        tire_pressure_status = self.data.get("TIRE_PRESSURE") or {}
-        differences = [abs(tire_pressure_status[key]["differenceBar"]) for key in tire_pressure_status if key.endswith("Tire")]
+        differences = [abs(tp["difference"]) for tp in (self.tire_pressures or {}).values() if tp.get("difference") is not None]
         if not differences:
             return True
         return max(differences) <= TIRE_PRESSURE_TOLERANCE
@@ -171,12 +207,21 @@ class PorscheVehicle:
     @property
     def tire_pressures(self) -> bool:
         """Return a dict containing tire pressure readings."""
-        return self.data.get("TIRE_PRESSURE")
+        result = {}
+        for key, value in self.data.items():
+            if key.startswith("TIRE_PRESSURE_") and isinstance(value, dict):
+                position = key[len("TIRE_PRESSURE_") :].lower()
+                result[position] = {
+                    "current": value.get("actualPressureBar"),
+                    "difference": value.get("differenceBar"),
+                    "lastModified": value.get("lastModified"),
+                }
+        return result or None
 
     @property
     def has_tire_pressure_monitoring(self) -> bool:
-        """Return True if vehicle has tire pressure monitoring."""
-        return self.data.get("TIRE_PRESSURE") is not None
+        """Return True if the vehicle reports any tyre pressure measurement."""
+        return any(key.startswith("TIRE_PRESSURE_") and isinstance(value, dict) for key, value in self.data.items())
 
     @property
     def charging_target(self) -> bool | None:
@@ -294,6 +339,26 @@ class PorscheVehicle:
         except PorscheExceptionError as err:
             _LOGGER.exception(
                 "Could not get capabilities, error communicating with API: %s",
+                err.message,
+            )
+
+    async def get_destinations(self) -> None:
+        """Fetch navigation destinations (favourites).
+
+        Kept separate from the overview poll: this list is user-curated, changes
+        rarely and can be large. Populates self.data with the DESTINATIONS entry.
+        """
+        measurements = "mf=" + "&mf=".join(DESTINATIONS)
+
+        try:
+            _LOGGER.debug("Getting destinations for vehicle %s", self.vin)
+            self.status = await self.connection.get(
+                f"/connect/v1/vehicles/{self.vin}?{measurements}",
+            )
+            self._update_vehicle_data()
+        except PorscheExceptionError as err:
+            _LOGGER.exception(
+                "Could not get destinations, error communicating with API: %s",
                 err.message,
             )
 
