@@ -115,7 +115,7 @@ class PorscheVehicle:
     @property
     def has_remote_climatisation(self) -> bool:
         """Return True if vehicle has remote climatisation ability."""
-        return self.data.__contains__("CLIMATIZER_STATE")
+        return isinstance(self.data.get("HVAC_SUMMARY"), dict)
 
     @property
     def has_direct_charge(self) -> bool:
@@ -135,9 +135,9 @@ class PorscheVehicle:
     @property
     def remote_climatise_on(self) -> bool:
         """Return True if remote climatisation is on."""
-        _LOGGER.debug("Remote climatisation is: %s", self.data.get("CLIMATIZER_STATE", {}).get("isOn"))
-
-        return self.data.get("CLIMATIZER_STATE", {}).get("isOn")
+        status = self.data.get("HVAC_SUMMARY", {}).get("status")
+        _LOGGER.debug("Remote climatisation status is: %s", status)
+        return status is not None and status != "OFF"
 
     @property
     def vehicle_locked(self) -> bool:
