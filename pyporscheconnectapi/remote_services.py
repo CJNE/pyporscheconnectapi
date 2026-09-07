@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from enum import EnumStr
+from enum import Enum
 from hashlib import sha512
 from typing import TYPE_CHECKING
 
@@ -22,7 +22,7 @@ _POLLING_DELAY = 1
 _POLLING_TIMEOUT = 240
 
 
-class StrEnum(EnumStr):
+class StrEnum(str, Enum):  # noqa: UP042
     """A string enumeration of type `(str, Enum)`. All members are compared via `upper()`. Defaults to UNKNOWN."""
 
     @classmethod
