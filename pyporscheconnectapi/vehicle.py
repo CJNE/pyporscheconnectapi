@@ -140,6 +140,29 @@ class PorscheVehicle:
         return status is not None and status != "OFF"
 
     @property
+    def climatisation_target_temperature(self) -> float | None:
+        """Return the climatisation target temperature in °C, if reported."""
+        kelvin = self.data.get("HVAC_SUMMARY", {}).get("targetTemperature")
+        return round(kelvin - 273.15, 1) if kelvin is not None else None
+
+    @property
+    def climatisation_remaining_time(self) -> int | None:
+        """Return remaining climatisation time in minutes while active, else None."""
+        return self.data.get("HVAC_SUMMARY", {}).get("remainingTime")
+
+    @property
+    def seat_heating(self) -> dict | None:
+        """Return seat heating state per position, if reported."""
+        zones = self.data.get("HVAC_SUMMARY", {}).get("climateZonesEnabled")
+        return zones if isinstance(zones, dict) else None
+
+    @property
+    def seat_heating_on(self) -> bool:
+        """Return True if any seat heating zone is active."""
+        zones = self.data.get("HVAC_SUMMARY", {}).get("climateZonesEnabled") or {}
+        return any(zones.values())
+
+    @property
     def vehicle_locked(self) -> bool:
         """Return True if vehicle is locked."""
         return self.data.get("LOCK_STATE_VEHICLE", {}).get("isLocked") is True
