@@ -101,7 +101,7 @@ class PorscheVehicle:
         last = self.last_global_update
         if last is None:
             return None
-        return datetime.datetime.now(datetime.UTC) - last
+        return datetime.datetime.now(datetime.timezone.utc) - last
 
     @property
     def has_remote_services(self) -> bool:
