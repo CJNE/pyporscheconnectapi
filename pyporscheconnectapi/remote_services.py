@@ -122,9 +122,22 @@ class RemoteServices:
         """Remote service for turning climatisation on."""
         _LOGGER.debug("Starting remote climatisation for %s", self._vehicle.vin)
 
+        cap = await self._climatiser_capability()
+        md = cap.get("metadata") or {}
+        lo, hi = md.get("minTemperature"), md.get("maxTemperature")
+        if lo is not None and hi is not None:
+            if not lo <= target_temperature <= hi:
+                msg = f"target_temperature {target_temperature} K is outside the vehicle's allowed range {lo}-{hi} K ({lo - 273.15:.1f}-{hi - 273.15:.1f} °C)"
+                raise ValueError(msg)
+        else:
+            _LOGGER.warning(
+                "Vehicle did not report climatisation temperature bounds; skipping client-side range check for %s",
+                self._vehicle.vin,
+            )
         payload = {
             "key": "REMOTE_CLIMATIZER_START",
             "payload": {
+                "spin": None,
                 "climateZonesEnabled": {
                     "frontLeft": front_left,
                     "frontRight": front_right,
@@ -134,8 +147,37 @@ class RemoteServices:
                 "targetTemperature": target_temperature,
             },
         }
-
         return await self._send_command(payload)
+
+    async def _climatiser_capability(self) -> dict:
+        """Return the REMOTE_CLIMATIZER_START capability, fetching capabilities if needed.
+
+        Raises if the vehicle does not support remote climatisation, or if it's
+        currently unavailable (e.g. deactivated licence).
+        """
+
+        def _find():
+            for cap in self._vehicle.capabilities.get("commands", []):
+                if cap.get("key") == "REMOTE_CLIMATIZER_START":
+                    return cap
+            return None
+
+        cap = _find()
+        if cap is None:
+            await self._vehicle.get_capabilities()
+            cap = _find()
+
+        if cap is None:
+            msg = "Vehicle does not report remote climatisation capability"
+            raise PorscheRemoteServiceError(msg)
+
+        status = cap.get("status", {})
+        if not status.get("isEnabled"):
+            cause = status.get("cause", "unknown")
+            msg = f"Remote climatisation is not available on this vehicle (cause: {cause})"
+            raise PorscheRemoteServiceError(msg)
+
+        return cap
 
     async def climatise_off(
         self,
