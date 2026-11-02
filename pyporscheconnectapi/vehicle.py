@@ -151,7 +151,7 @@ class PorscheVehicle:
         """Return True if remote climatisation is on."""
         status = self.data.get("HVAC_SUMMARY", {}).get("status")
         _LOGGER.debug("Remote climatisation status is: %s", status)
-        return status is not None and status != "OFF"
+        return status in ("HEATING", "COOLING", "ON")
 
     @property
     def climatisation_target_temperature(self) -> float | None:
