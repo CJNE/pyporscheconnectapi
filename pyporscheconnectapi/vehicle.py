@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import json  # only for formatting debug output
 import logging
 import re
@@ -19,11 +19,11 @@ _LOGGER = logging.getLogger(__name__)
 BASE_DATA = ["vin", "modelName", "modelType", "systemInfo", "timestamp"]
 
 
-def _parse_porsche_datetime(datetime_str: str) -> datetime.datetime:
+def _parse_porsche_datetime(datetime_str: str) -> dt.datetime:
     """Parse Porsche API timestamps, including UTC timestamps with a trailing Z."""
     if datetime_str.endswith("Z"):
         datetime_str = datetime_str[:-1] + "+00:00"
-    return datetime.datetime.fromisoformat(datetime_str)
+    return dt.datetime.fromisoformat(datetime_str)
 
 
 class PorscheVehicle:
@@ -90,18 +90,18 @@ class PorscheVehicle:
         return self.data.get("connect", "not available")
 
     @property
-    def last_global_update(self) -> datetime.datetime | None:
+    def last_global_update(self) -> dt.datetime | None:
         """Return the vehicle-reported global data timestamp, if available."""
         ts = self.data.get("GLOBAL_TIMESTAMP", {}).get("timestamp")
         return _parse_porsche_datetime(ts) if ts else None
 
     @property
-    def data_age(self) -> datetime.timedelta | None:
+    def data_age(self) -> dt.timedelta | None:
         """Return how old the reported vehicle data is, or None if unknown."""
         last = self.last_global_update
         if last is None:
             return None
-        return datetime.datetime.now(datetime.timezone.utc) - last
+        return dt.datetime.now(dt.UTC) - last
 
     @property
     def has_remote_services(self) -> bool:
@@ -229,7 +229,7 @@ class PorscheVehicle:
         return self.data.get("CHARGING_SUMMARY", {}).get("minSoC")
 
     @property
-    def location_updated_at(self) -> datetime:
+    def location_updated_at(self) -> dt:
         """Return time stamp of latest location update."""
         datetime_str = self.data.get("GPS_LOCATION", {}).get("lastModified")
         if datetime_str:
