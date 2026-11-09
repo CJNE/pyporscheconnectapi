@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
+import datetime as dt
+import enum
 import logging
-from enum import Enum
 from hashlib import sha512
 from typing import TYPE_CHECKING
 
@@ -22,7 +22,7 @@ _POLLING_DELAY = 1
 _POLLING_TIMEOUT = 240
 
 
-class StrEnum(str, Enum):
+class StrEnum(enum.StrEnum):
     """A string enumeration of type `(str, Enum)`. All members are compared via `upper()`. Defaults to UNKNOWN."""
 
     @classmethod
@@ -357,11 +357,11 @@ class RemoteServices:
 
         :raises TimeoutError: if there is no final answer before _POLLING_TIMEOUT
         """
-        fail_after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+        fail_after = dt.datetime.now(dt.UTC) + dt.timedelta(
             seconds=_POLLING_TIMEOUT,
         )
         status = None
-        while datetime.datetime.now(datetime.UTC) < fail_after:
+        while dt.datetime.now(dt.UTC) < fail_after:
             await asyncio.sleep(_POLLING_DELAY)
             status = await self._get_remote_service_status(status_id)
             _LOGGER.debug("Current state of '%s' is: %s", status_id, status.state.value)
