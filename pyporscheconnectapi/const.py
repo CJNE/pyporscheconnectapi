@@ -1,7 +1,9 @@
 """Client configuration constants."""
 
 AUTHORIZATION_SERVER = "identity.porsche.com"
-REDIRECT_URI = "my-porsche-app://auth0/callback"
+# The app's HTTPS app link. Porsche stopped accepting the custom schemes
+# (my-porsche-app://, my-porsche-app-auth0://) for this client in November 2026.
+REDIRECT_URI = "https://security.porsche.com/auth/en-GB/app/callback"
 AUDIENCE = "https://api.porsche.com"
 CLIENT_ID = "XhygisuebbrqQ80byOuU5VncxLIm8E6H"
 X_CLIENT_ID = "41843fb4-691d-4970-85c7-2673e8ecef40"

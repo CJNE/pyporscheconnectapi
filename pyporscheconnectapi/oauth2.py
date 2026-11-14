@@ -240,7 +240,7 @@ class OAuth2Client:
             headers=self.headers,
         )
         if resp.status_code != 302:
-            msg = "Could not fetch authorization code"
+            msg = f"Could not fetch authorization code: HTTP {resp.status_code}"
             raise PorscheExceptionError(msg)
 
         location = resp.headers["Location"]
